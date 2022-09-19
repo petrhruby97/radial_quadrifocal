@@ -6,6 +6,7 @@
 #include <map>
 #include "rqt/types.h"
 #include "rqt/radial_quadrifocal_solver.h"
+#include "rqt/metric_upgrade.h"
 
 
 namespace py = pybind11;
@@ -116,21 +117,43 @@ py::dict radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x
     TrackSettings track_settings = settings_from_dict(track_settings_dict);
 
     std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
-    std::vector<int> cam2QF;
     std::vector<Eigen::Matrix<double, 16, 1>> QFs;
-    std::vector<std::vector<Eigen::Vector3d>> Xs;
 
     std::cout << "Entering solver" << std::endl;
-    int valid = radial_quadrifocal_solver(problem, sols, x1, x2, x3, x4, track_settings, P1, P2, P3, P4, cam2QF, QFs, Xs);
+    int valid = radial_quadrifocal_solver(problem, sols, x1, x2, x3, x4, track_settings, P1, P2, P3, P4, QFs);
 
     py::dict result;
     result["P1"] = P1;
     result["P2"] = P2;
     result["P3"] = P3;
-    result["P4"] = P4;
-    result["cam2QF"] = cam2QF;
-    result["QFs"] = QFs;
-    result["Xs"] = Xs;
+    result["P4"] = P4;    
+    result["QFs"] = QFs;    
+    result["valid"] = valid;
+
+    return result;
+}
+
+
+py::dict metric_upgrade_wrapper(const std::vector<Eigen::Vector2d> &x1, 
+                                const std::vector<Eigen::Vector2d> &x2, 
+                                const std::vector<Eigen::Vector2d> &x3, 
+                                const std::vector<Eigen::Vector2d> &x4,
+                                const Eigen::Matrix<double,2,4> &P1, 
+                                const Eigen::Matrix<double,2,4> &P2, 
+                                const Eigen::Matrix<double,2,4> &P3, 
+                                const Eigen::Matrix<double,2,4> &P4) {
+
+    std::vector<Eigen::Matrix<double, 2, 4>> P1_calib, P2_calib, P3_calib, P4_calib;    
+    std::vector<std::vector<Eigen::Vector3d>> Xs;
+
+    int valid = metric_upgrade(x1,x2,x3,x4,P1,P2,P3,P4,P1_calib,P2_calib,P3_calib,P4_calib,Xs);
+
+    py::dict result;
+    result["P1"] = P1_calib;
+    result["P2"] = P2_calib;
+    result["P3"] = P3_calib;
+    result["P4"] = P4_calib;    
+    result["Xs"] = Xs;    
     result["valid"] = valid;
 
     return result;
@@ -164,7 +187,8 @@ PYBIND11_MODULE(pyrqt, m)
     m.def("radial_quadrifocal_solver", &radial_quadrifocal_solver_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
           py::arg("x4"), py::arg("track_settings"), "Minimal solver for radial quadrifocal tensor", py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
-  
+    m.def("metric_upgrade", &metric_upgrade_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
+          py::arg("x4"), py::arg("P1"), py::arg("P2"), py::arg("P3"), py::arg("P4"), "Upgrades a projective reconstruction to metric.", py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
     m.attr("__version__") = std::string("0.0.1");
   

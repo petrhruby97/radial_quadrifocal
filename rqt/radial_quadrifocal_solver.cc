@@ -699,12 +699,12 @@ int radial_quadrifocal_solver(const std::vector<std::complex<double>> start_prob
                               const std::vector<std::vector<std::complex<double>>> start_sols,
                               const std::vector<Eigen::Vector2d> &p1s, const std::vector<Eigen::Vector2d> &p2s,
                               const std::vector<Eigen::Vector2d> &p3s, const std::vector<Eigen::Vector2d> &p4s,
-                              const TrackSettings settings, std::vector<Eigen::Matrix<double, 2, 4>> &P1_out,
+                              const TrackSettings settings,
+                              std::vector<Eigen::Matrix<double, 2, 4>> &P1_out,
                               std::vector<Eigen::Matrix<double, 2, 4>> &P2_out,
                               std::vector<Eigen::Matrix<double, 2, 4>> &P3_out,
-                              std::vector<Eigen::Matrix<double, 2, 4>> &P4_out, std::vector<int> &cam2QF,
-                              std::vector<Eigen::Matrix<double, 16, 1>> &QFs,
-                              std::vector<std::vector<Eigen::Vector3d>> &Xs) {
+                              std::vector<Eigen::Matrix<double, 2, 4>> &P4_out,
+                              std::vector<Eigen::Matrix<double, 16, 1>> &QFs) {
     // initialize the variables for the tracking
     std::complex<double> params[448];
     static std::complex<double> solution[13];
@@ -752,7 +752,6 @@ int radial_quadrifocal_solver(const std::vector<std::complex<double>> start_prob
         return 0;
 
     
-    QFs.resize(28);
     // track from every solution to the starting system
     for (int k = 0; k < 28; ++k) {
         // copy the solution
@@ -770,67 +769,27 @@ int radial_quadrifocal_solver(const std::vector<std::complex<double>> start_prob
             Eigen::Matrix<double, 2, 4> Ps[4];
             sol2cam(solution, Ps);
 
+            const Eigen::Matrix<double, 16, 1> QF = cams2qft(Ps);
+            
+
+            P1_out.push_back(Ps[0]);
+            P2_out.push_back(Ps[1]);
+            P3_out.push_back(Ps[2]);
+            P4_out.push_back(Ps[3]);
+            QFs.push_back(QF);
+
             // get the symmetric cameras
             Eigen::Matrix<double, 2, 4> Ps_sym[4];
             get_symmetric_cams(Ps, Ps_sym);
 
-            // find the quadrifocal tensor from the cameras
-            const Eigen::Matrix<double, 16, 1> QF = cams2qft(Ps);
-            // const Eigen::Matrix<double,16,1> QF_sym = cams2qft(Ps_sym);
-            QFs[k] = QF;
-
-            bool optimize_roots = 0;
-
-            // calibrate the obtained cameras + fix their frames
-            Eigen::Matrix<double, 2, 4> P1cs[4];
-            Eigen::Matrix<double, 2, 4> P2cs[4];
-            Eigen::Matrix<double, 2, 4> P3cs[4];
-            Eigen::Matrix<double, 2, 4> P4cs[4];
-            int num_calibrated = calibrate(Ps, P1cs, P2cs, P3cs, P4cs, optimize_roots);
-
-            // for every calibrated camera find all sign flipped cameras
-            Eigen::Matrix<double, 2, 4> P1fs[128];
-            Eigen::Matrix<double, 2, 4> P2fs[128];
-            Eigen::Matrix<double, 2, 4> P3fs[128];
-            Eigen::Matrix<double, 2, 4> P4fs[128];
-            int num_flipped = flip_cameras(num_calibrated, P1cs, P2cs, P3cs, P4cs, P1fs, P2fs, P3fs, P4fs);
-
-            // calibrate the symmetric cameras + fix their frames
-            Eigen::Matrix<double, 2, 4> P1cs_sym[4];
-            Eigen::Matrix<double, 2, 4> P2cs_sym[4];
-            Eigen::Matrix<double, 2, 4> P3cs_sym[4];
-            Eigen::Matrix<double, 2, 4> P4cs_sym[4];
-            int num_calibrated_sym = calibrate(Ps_sym, P1cs_sym, P2cs_sym, P3cs_sym, P4cs_sym, optimize_roots);
-
-            // for every calibrated symmetric camera find all sign flipped cameras
-            int num_flipped_sym =
-                flip_cameras(num_calibrated_sym, P1cs_sym, P2cs_sym, P3cs_sym, P4cs_sym, P1fs + num_flipped,
-                             P2fs + num_flipped, P3fs + num_flipped, P4fs + num_flipped);
-            num_flipped += num_flipped_sym;
-
-            // TODO measure time, compare with the inlier checking, and decide how often to do this
-            // for every camera triangulate the 3D points and check if they can be in front of the camera
-            Eigen::Matrix2d eps2;
-            eps2 << 0, 1, -1, 0;
-            for (int q = 0; q < num_flipped; ++q) {
-                // triangulate the points and check if the pose is valid
-                std::vector<Eigen::Vector3d> X(13);
-                bool valid = triangulate(p1s, p2s, p3s, p4s, P1fs[q], P2fs[q], P3fs[q], P4fs[q], X);
-
-                // only accept the pose if all points are in front of all cameras
-                if (valid) {
-                    P1_out.push_back(P1fs[q]);
-                    P2_out.push_back(P2fs[q]);
-                    P3_out.push_back(P3fs[q]);
-                    P4_out.push_back(P4fs[q]);
-                    cam2QF.push_back(k);
-                    Xs.push_back(X);
-                    ++num_good_poses;
-                }
-            }
+            P1_out.push_back(Ps_sym[0]);
+            P2_out.push_back(Ps_sym[1]);
+            P3_out.push_back(Ps_sym[2]);
+            P4_out.push_back(Ps_sym[3]);
+            QFs.push_back(QF);
         }
     }
-    return num_good_poses;
+    return P1_out.size();
 }
 
 } // namespace rqt

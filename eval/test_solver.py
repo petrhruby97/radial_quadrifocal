@@ -30,8 +30,7 @@ def random_rot():
 def lookat(point, center):
     r3 = point - center
     r3 = r3 / np.linalg.norm(r3)
-
-    u = np.array([0,1,0])
+    u = np.array([0,1,0]) + 0.01*np.random.randn(3)    
     r1 = np.cross(u, r3)
     r1 = r1 / np.linalg.norm(r1)
     r2 = np.cross(r3, r1)
@@ -39,6 +38,21 @@ def lookat(point, center):
 
     return R
 
+def camera_error_modulo_flips(PP_est,PP_gt):
+    err = 10000
+    for z in [-1,1]:
+        for w in [1]:
+            H = np.diag([1,1,z,w])
+
+            e1 = np.linalg.norm(PP_est[0] @ H - PP_gt[0][0:2,:])
+            e2 = np.linalg.norm(PP_est[1] @ H - PP_gt[1][0:2,:])
+            e3 = np.linalg.norm(PP_est[2] @ H - PP_gt[2][0:2,:])
+            e4 = np.linalg.norm(PP_est[3] @ H - PP_gt[3][0:2,:])
+            err = np.min([err, e1+e2+e3+e4])
+            print(f'z{z} w{w} err={err}')
+           
+
+    return err
     
 
 def setup_synthetic_scene():
@@ -82,25 +96,77 @@ def setup_synthetic_scene():
     P3 = np.c_[R3, t3]
     P4 = np.c_[R4, t4]
 
+    # transform coordinate system
+    H = np.c_[R1.T, -R1.T @ t1]
+    H = np.r_[H, np.array([[0,0,0,1]])]
+    P1 = P1 @ H
+    P2 = P2 @ H
+    P3 = P3 @ H
+    P4 = P4 @ H
+    Hinv = np.linalg.inv(H)
+    X = X @ Hinv[0:3,0:3].T + Hinv[0:3,3]
+
+    # fix second camera translation
+    alpha = -P2[1,3] / P2[1,2]
+    H = np.c_[np.eye(3), np.array([0,0,alpha])]
+    H = np.r_[H, np.array([[0,0,0,1]])]
+    P1 = P1 @ H
+    P2 = P2 @ H
+    P3 = P3 @ H
+    P4 = P4 @ H
+    Hinv = np.linalg.inv(H)
+    X = X @ Hinv[0:3,0:3].T + Hinv[0:3,3]
+
+    # Fix scale
+    sc = P2[0,3]
+    #P1[:,3] /= sc
+    P2[:,3] /= sc
+    P3[:,3] /= sc
+    P4[:,3] /= sc
+    X = X / sc
+    
     xx = [x1,x2,x3,x4]
     PP = [P1,P2,P3,P4]
     
     return (xx, PP, X)
 
 
-xx, PP, X = setup_synthetic_scene()
+xx, PP_gt, X = setup_synthetic_scene()
 
 
-T_gt = make_tensor(PP[0], PP[1], PP[2], PP[3])
+T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
 
 out = pyrqt.radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
 
-for T in out['QFs']:
-    err = np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)])
-    print(err)
+
+err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
 
 
-# Validate the synthetic instance
+err_P = []
+for i in range(len(err_T)):
+    P1 = out['P1'][i]
+    P2 = out['P2'][i]
+    P3 = out['P3'][i]
+    P4 = out['P4'][i]
+
+    out_calib = pyrqt.metric_upgrade(xx[0], xx[1], xx[2], xx[3], P1, P2, P3, P4)
+
+    for k in range(out_calib['valid']):
+        P1 = out_calib['P1'][k]
+        P2 = out_calib['P2'][k]
+        P3 = out_calib['P3'][k]
+        P4 = out_calib['P4'][k]
+        err_P.append(camera_error_modulo_flips([P1,P2,P3,P4], PP_gt))
+
+
+
+i = np.argmin(err_T)
+j = np.argmin(err_P)
+print(f' Tensor error = {err_T[i]}')
+print(f' Camera error = {err_P[j]}')
+
+
+## Validate the synthetic instance
 #eps = np.array([[0, -1], [1, 0]])
 #for k in range(4):
 #    proj = (PP[k][0:2,0:3] @ X.T).T + PP[k][0:2,3]
@@ -109,4 +175,4 @@ for T in out['QFs']:
 #        err = proj[i] @ eps @ xx[k][i].T
 #        infront = np.dot(proj[i], xx[k][i]) > 0
 #        print(err, infront)
-#
+

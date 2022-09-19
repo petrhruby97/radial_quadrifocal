@@ -7666,7 +7666,7 @@ int track(const struct TrackSettings s, const std::complex<double> s_sols[13], c
         std::complex<double> t1 = gamma * (t + *dt) / (1.0 + (gamma - 1.0) * (t + *dt)); // gammified time in t0+dt
         std::complex<double> t05 =
             gamma * (t + *dt * 0.5) / (1.0 + (gamma - 1.0) * (t + *dt * 0.5)); // gammified time in t0 + 0.5*dt
-        std::complex<double> dtt = t1 - *t0;
+        //std::complex<double> dtt = t1 - *t0;
 
         // dx1
         evaluate_Hxt(xt, params, Hxt); // Outputs Hxt
