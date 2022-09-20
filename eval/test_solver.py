@@ -66,10 +66,10 @@ def setup_synthetic_scene():
     c3 = np.random.randn(3)
     c4 = np.random.randn(3)
 
-    c1 = 2.0 * c1 / np.linalg.norm(c1)
-    c2 = 2.0 * c2 / np.linalg.norm(c2)
-    c3 = 2.0 * c3 / np.linalg.norm(c3)
-    c4 = 2.0 * c4 / np.linalg.norm(c4)
+    #c1 = 2.0 * c1 / np.linalg.norm(c1)
+    #c2 = 2.0 * c2 / np.linalg.norm(c2)
+    #c3 = 2.0 * c3 / np.linalg.norm(c3)
+    #c4 = 2.0 * c4 / np.linalg.norm(c4)
 
     R1 = lookat(2.0 * (np.random.rand(3) - 0.5), c1)
     R2 = lookat(2.0 * (np.random.rand(3) - 0.5), c2)
@@ -86,10 +86,15 @@ def setup_synthetic_scene():
     x3 = (X @ R3.T + t3)
     x4 = (X @ R4.T + t4)
 
-    x1 = x1[:,0:2] / x1[:,[2,2]]
-    x2 = x2[:,0:2] / x2[:,[2,2]]
-    x3 = x3[:,0:2] / x3[:,[2,2]]
-    x4 = x4[:,0:2] / x4[:,[2,2]]
+    #x1 = x1[:,0:2] / x1[:,[2,2]]
+    #x2 = x2[:,0:2] / x2[:,[2,2]]
+    #x3 = x3[:,0:2] / x3[:,[2,2]]
+    #x4 = x4[:,0:2] / x4[:,[2,2]]
+
+    x1 = x1[:,0:2]
+    x2 = x2[:,0:2]
+    x3 = x3[:,0:2]
+    x4 = x4[:,0:2]
 
     P1 = np.c_[R1, t1]
     P2 = np.c_[R2, t2]
@@ -117,8 +122,14 @@ def setup_synthetic_scene():
     Hinv = np.linalg.inv(H)
     X = X @ Hinv[0:3,0:3].T + Hinv[0:3,3]
 
+    
     # Fix scale
     sc = P2[0,3]
+    if sc < 0:
+        P2 = -P2
+        sc = -sc
+        x2 = -x2
+
     #P1[:,3] /= sc
     P2[:,3] /= sc
     P3[:,3] /= sc
@@ -127,6 +138,8 @@ def setup_synthetic_scene():
     
     xx = [x1,x2,x3,x4]
     PP = [P1,P2,P3,P4]
+
+
     
     return (xx, PP, X)
 
@@ -156,7 +169,24 @@ for i in range(len(err_T)):
         P2 = out_calib['P2'][k]
         P3 = out_calib['P3'][k]
         P4 = out_calib['P4'][k]
-        err_P.append(camera_error_modulo_flips([P1,P2,P3,P4], PP_gt))
+        err = camera_error_modulo_flips([P1,P2,P3,P4], PP_gt)
+        err_P.append(err)
+        
+        Xk = np.c_[np.array(out_calib['Xs'][k]), np.ones(13)]
+
+        x1 = Xk @ P1.T
+        x2 = Xk @ P2.T
+        x3 = Xk @ P3.T
+        x4 = Xk @ P4.T
+
+        cheiral_ok = (x1 * xx[0] > 0).all() and (x2 * xx[1] > 0).all() and (x3 * xx[2] > 0).all() and (x4 * xx[3] > 0).all()
+
+        print(f'Tensor {i} - Camera {k} - err={err} - cheiral {cheiral_ok} --------')
+        print(P1, "\n", PP_gt[0][0:2,:],"\n")
+        print(P2, "\n", PP_gt[1][0:2,:],"\n")
+        print(P3, "\n", PP_gt[2][0:2,:],"\n")
+        print(P4, "\n", PP_gt[3][0:2,:],"\n")
+        print(np.array(out_calib['Xs'][k]),"--\n",X)
 
 
 
@@ -165,6 +195,16 @@ j = np.argmin(err_P)
 print(f' Tensor error = {err_T[i]}')
 print(f' Camera error = {err_P[j]}')
 
+
+Xk = np.c_[X, np.ones(13)]
+
+x1 = Xk @ PP_gt[0][0:2,:].T
+x2 = Xk @ PP_gt[1][0:2,:].T
+x3 = Xk @ PP_gt[2][0:2,:].T
+x4 = Xk @ PP_gt[3][0:2,:].T
+
+cheiral_ok = (x1 * xx[0] > 0).all() and (x2 * xx[1] > 0).all() and (x3 * xx[2] > 0).all() and (x4 * xx[3] > 0).all()
+print(f'cheiral {cheiral_ok} ')
 
 ## Validate the synthetic instance
 #eps = np.array([[0, -1], [1, 0]])
