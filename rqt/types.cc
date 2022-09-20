@@ -1,4 +1,5 @@
 #include "types.h"
+
 #include <fstream>
 #include <iostream>
 
@@ -40,139 +41,139 @@ std::complex<double> default_sols[28][13] = {
 
 bool TrackSettings::load_settings(const std::string &filename) {
 
-  // loads the track settings
-  std::ifstream f;
-  f.open(filename);
+    // loads the track settings
+    std::ifstream f;
+    f.open(filename);
 
-  if (!f.good()) {
+    if (!f.good()) {
+        f.close();
+        std::cout << "Settings file not available\n";
+
+        return 0;
+    }
+
+    std::string t;
+
+    // init dt
+    f >> init_dt_;
+    getline(f, t);
+
+    // min dt
+    f >> min_dt_;
+    getline(f, t);
+
+    // end zone factor
+    f >> end_zone_factor_;
+    getline(f, t);
+
+    // corrector tolerance epsilon
+    f >> epsilon_;
+    getline(f, t);
+    epsilon2_ = epsilon_ * epsilon_;
+
+    // step increase factor
+    f >> dt_increase_factor_;
+    getline(f, t);
+    dt_decrease_factor_ = 1. / dt_increase_factor_;
+
+    // infinity threshold
+    f >> infinity_threshold_;
+    getline(f, t);
+    infinity_threshold2_ = infinity_threshold_ * infinity_threshold_;
+
+    // max corr steps
+    f >> max_corr_steps_;
+    getline(f, t);
+
+    // num successes before increase
+    f >> num_successes_before_increase_;
+    getline(f, t);
+
     f.close();
-    std::cout << "Settings file not available\n";
-
-    return 0;
-  }
-
-  std::string t;
-
-  // init dt
-  f >> init_dt_;
-  getline(f, t);
-
-  // min dt
-  f >> min_dt_;
-  getline(f, t);
-
-  // end zone factor
-  f >> end_zone_factor_;
-  getline(f, t);
-
-  // corrector tolerance epsilon
-  f >> epsilon_;
-  getline(f, t);
-  epsilon2_ = epsilon_ * epsilon_;
-
-  // step increase factor
-  f >> dt_increase_factor_;
-  getline(f, t);
-  dt_decrease_factor_ = 1. / dt_increase_factor_;
-
-  // infinity threshold
-  f >> infinity_threshold_;
-  getline(f, t);
-  infinity_threshold2_ = infinity_threshold_ * infinity_threshold_;
-
-  // max corr steps
-  f >> max_corr_steps_;
-  getline(f, t);
-
-  // num successes before increase
-  f >> num_successes_before_increase_;
-  getline(f, t);
-
-  f.close();
-  return true;
+    return true;
 }
 
 // loads the starting system
 bool StartSystem::load_start_system(const std::string &filename) {
-  std::ifstream f;
-  f.open(filename);
+    std::ifstream f;
+    f.open(filename);
 
-  if (!f.good()) {
-    f.close();
-    std::cout << "Data file not available\n";
-    return 0;
-  }
-
-  problem.resize(224);
-  sols.resize(28);
-
-  // load the points
-  for (int j = 0; j < 224; j++) {
-    // skip the special characters
-    char tr;
-    f.get(tr);
-    while (tr != '{' && tr != ',')
-      f.get(tr);
-
-    // load the real part
-    double re;
-    f >> re;
-
-    // skip the special characters
-    f.get(tr);
-    while (tr != '{' && tr != ',')
-      f.get(tr);
-
-    // load the complex part
-    double im;
-    f >> im;
-
-    std::complex<double> u = std::complex<double>(re, im);
-    problem[j] = u;
-  }
-
-  // load the solutions
-  for (int j = 0; j < 28; ++j) {
-    std::vector<std::complex<double>> sol(13);
-    for (int k = 0; k < 13; ++k) {
-      // skip the special characters
-      char tr;
-      f.get(tr);
-      while (tr != '{' && tr != ',')
-        f.get(tr);
-
-      // load the real part
-      double re;
-      f >> re;
-
-      // skip the special characters
-      f.get(tr);
-      while (tr != '{' && tr != ',')
-        f.get(tr);
-
-      // load the complex part
-      double im;
-      f >> im;
-
-      std::complex<double> u = std::complex<double>(re, im);
-
-      sol[k] = u;
+    if (!f.good()) {
+        f.close();
+        std::cout << "Data file not available\n";
+        return 0;
     }
-    sols[j] = sol;
-  }
 
-  f.close();
-  return 1;
+    problem.resize(224);
+    sols.resize(28);
+
+    // load the points
+    for (int j = 0; j < 224; j++) {
+        // skip the special characters
+        char tr;
+        f.get(tr);
+        while (tr != '{' && tr != ',')
+            f.get(tr);
+
+        // load the real part
+        double re;
+        f >> re;
+
+        // skip the special characters
+        f.get(tr);
+        while (tr != '{' && tr != ',')
+            f.get(tr);
+
+        // load the complex part
+        double im;
+        f >> im;
+
+        std::complex<double> u = std::complex<double>(re, im);
+        problem[j] = u;
+    }
+
+    // load the solutions
+    for (int j = 0; j < 28; ++j) {
+        std::vector<std::complex<double>> sol(13);
+        for (int k = 0; k < 13; ++k) {
+            // skip the special characters
+            char tr;
+            f.get(tr);
+            while (tr != '{' && tr != ',')
+                f.get(tr);
+
+            // load the real part
+            double re;
+            f >> re;
+
+            // skip the special characters
+            f.get(tr);
+            while (tr != '{' && tr != ',')
+                f.get(tr);
+
+            // load the complex part
+            double im;
+            f >> im;
+
+            std::complex<double> u = std::complex<double>(re, im);
+
+            sol[k] = u;
+        }
+        sols[j] = sol;
+    }
+
+    f.close();
+    return 1;
 }
 
 // loads the default starting system
 bool StartSystem::load_default() {
-  problem.assign(default_problem, default_problem + 224);
-  sols.resize(28);
-  for (int i = 0; i < 28; ++i) {
-    sols[i].assign(default_sols[i], default_sols[i] + 13);
-  }
-  return true;
+    problem.assign(default_problem, default_problem + 224);
+    sols.resize(28);
+    for (int i = 0; i < 28; ++i) {
+        sols[i].assign(default_sols[i], default_sols[i] + 13);
+    }
+    return true;
 }
 
 } // namespace rqt

@@ -40,26 +40,20 @@ def lookat(point, center):
 
 def camera_error_modulo_flips(PP_est,PP_gt):
     err = 10000
-    for z in [-1,1]:
-        for w in [1]:
-            H = np.diag([1,1,z,w])
+    for z in [-1,1]:        
+        H = np.diag([1,1,z,1])
 
-            e1 = np.linalg.norm(PP_est[0] @ H - PP_gt[0][0:2,:])
-            e2 = np.linalg.norm(PP_est[1] @ H - PP_gt[1][0:2,:])
-            e3 = np.linalg.norm(PP_est[2] @ H - PP_gt[2][0:2,:])
-            e4 = np.linalg.norm(PP_est[3] @ H - PP_gt[3][0:2,:])
-            err = np.min([err, e1+e2+e3+e4])
-            print(f'z{z} w{w} err={err}')
-           
-
+        e1 = np.linalg.norm(PP_est[0] @ H - PP_gt[0][0:2,:])
+        e2 = np.linalg.norm(PP_est[1] @ H - PP_gt[1][0:2,:])
+        e3 = np.linalg.norm(PP_est[2] @ H - PP_gt[2][0:2,:])
+        e4 = np.linalg.norm(PP_est[3] @ H - PP_gt[3][0:2,:])
+        err = np.min([err, e1+e2+e3+e4])         
     return err
     
 
 def setup_synthetic_scene():
     X = np.random.rand(13,3)
     X = 2*(X - 0.5)
-
-    
 
     c1 = np.random.randn(3)
     c2 = np.random.randn(3)
@@ -137,10 +131,8 @@ def setup_synthetic_scene():
     X = X / sc
     
     xx = [x1,x2,x3,x4]
-    PP = [P1,P2,P3,P4]
+    PP = [P1[0:2,:],P2[0:2,:],P3[0:2,:],P4[0:2,:]]
 
-
-    
     return (xx, PP, X)
 
 
@@ -149,62 +141,23 @@ xx, PP_gt, X = setup_synthetic_scene()
 
 T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
 
-out = pyrqt.radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
-
-
+out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
 err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
 
 
 err_P = []
-for i in range(len(err_T)):
+for i in range(out['valid']):
     P1 = out['P1'][i]
     P2 = out['P2'][i]
     P3 = out['P3'][i]
     P4 = out['P4'][i]
 
-    out_calib = pyrqt.metric_upgrade(xx[0], xx[1], xx[2], xx[3], P1, P2, P3, P4)
-
-    for k in range(out_calib['valid']):
-        P1 = out_calib['P1'][k]
-        P2 = out_calib['P2'][k]
-        P3 = out_calib['P3'][k]
-        P4 = out_calib['P4'][k]
-        err = camera_error_modulo_flips([P1,P2,P3,P4], PP_gt)
-        err_P.append(err)
-        
-        Xk = np.c_[np.array(out_calib['Xs'][k]), np.ones(13)]
-
-        x1 = Xk @ P1.T
-        x2 = Xk @ P2.T
-        x3 = Xk @ P3.T
-        x4 = Xk @ P4.T
-
-        cheiral_ok = (x1 * xx[0] > 0).all() and (x2 * xx[1] > 0).all() and (x3 * xx[2] > 0).all() and (x4 * xx[3] > 0).all()
-
-        print(f'Tensor {i} - Camera {k} - err={err} - cheiral {cheiral_ok} --------')
-        print(P1, "\n", PP_gt[0][0:2,:],"\n")
-        print(P2, "\n", PP_gt[1][0:2,:],"\n")
-        print(P3, "\n", PP_gt[2][0:2,:],"\n")
-        print(P4, "\n", PP_gt[3][0:2,:],"\n")
-        print(np.array(out_calib['Xs'][k]),"--\n",X)
+    err_P = camera_error_modulo_flips([P1,P2,P3,P4], PP_gt)
+    
+    print(err_P)
 
 
 
-i = np.argmin(err_T)
-j = np.argmin(err_P)
-print(f' Tensor error = {err_T[i]}')
-print(f' Camera error = {err_P[j]}')
-
-
-Xk = np.c_[X, np.ones(13)]
-
-x1 = Xk @ PP_gt[0][0:2,:].T
-x2 = Xk @ PP_gt[1][0:2,:].T
-x3 = Xk @ PP_gt[2][0:2,:].T
-x4 = Xk @ PP_gt[3][0:2,:].T
-
-cheiral_ok = (x1 * xx[0] > 0).all() and (x2 * xx[1] > 0).all() and (x3 * xx[2] > 0).all() and (x4 * xx[3] > 0).all()
-print(f'cheiral {cheiral_ok} ')
 
 ## Validate the synthetic instance
 #eps = np.array([[0, -1], [1, 0]])
