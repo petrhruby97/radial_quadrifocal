@@ -1,6 +1,8 @@
 #include "rqt/metric_upgrade.h"
 #include "rqt/radial_quadrifocal_solver.h"
 #include "rqt/types.h"
+#include "rqt/quadrifocal_estimator.h"
+#include "rqt/ransac_impl.h"
 
 #include <chrono>
 #include <iomanip>
@@ -10,6 +12,7 @@
 #include <pybind11/iostream.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
 
 namespace py = pybind11;
 using namespace rqt;
@@ -45,7 +48,6 @@ TrackSettings settings_from_dict(const py::dict &dict) {
     return settings;
 }
 
-/*
 py::dict dict_from_ransac_stats(const RansacStats &stats) {
     py::dict result;
     result["refinements"] = stats.refinements;
@@ -56,6 +58,21 @@ py::dict dict_from_ransac_stats(const RansacStats &stats) {
 
     return result;
 }
+
+
+RansacOptions ransac_options_from_dict(const py::dict &opt_dict) {
+    RansacOptions ransac_options;
+    update(opt_dict, "max_iterations", ransac_options.max_iterations);
+    update(opt_dict, "min_iterations", ransac_options.min_iterations);
+    update(opt_dict, "dyn_num_trials_mult", ransac_options.dyn_num_trials_mult);
+    update(opt_dict, "success_prob", ransac_options.success_prob);
+    update(opt_dict, "max_error", ransac_options.max_error);
+    //update(opt_dict, "seed", ransac_options.seed);
+    return ransac_options;
+}
+
+/*
+
 
 Camera camera_from_dict(const py::dict &camera_dict) {
     Camera camera;
@@ -105,7 +122,7 @@ static std::string vec_to_string(const std::vector<std::vector<T>>& vec){
 }
 */
 
-py::dict radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x1,
+py::dict ransac_quadrifocal_wrapper(const std::vector<Eigen::Vector2d> &x1,
                                            const std::vector<Eigen::Vector2d> &x2,
                                            const std::vector<Eigen::Vector2d> &x3,
                                            const std::vector<Eigen::Vector2d> &x4, const py::dict &opt) {
@@ -127,24 +144,26 @@ py::dict radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x
         track_settings = settings_from_dict(opt);
     }
 
-    std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
-    std::vector<Eigen::Matrix<double, 16, 1>> QFs;
+    RansacOptions ransac_opt = ransac_options_from_dict(opt);
+
+    QuadrifocalEstimator estimator(ransac_opt,x1,x2,x3,x4,start_system,track_settings);
+    QuadrifocalEstimator::Reconstruction best_model;
 
     auto start_time = std::chrono::high_resolution_clock::now();
-
-    int valid = radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
-
+    RansacStats stats = ransac(estimator, ransac_opt, &best_model);
     auto end_time = std::chrono::high_resolution_clock::now();
+
     std::chrono::duration<double, std::milli> runtime_ms = end_time - start_time;
 
     py::dict result;
-    result["P1"] = P1;
-    result["P2"] = P2;
-    result["P3"] = P3;
-    result["P4"] = P4;
-    result["QFs"] = QFs;
-    result["valid"] = valid;
+    result["P1"] = best_model.P1;
+    result["P2"] = best_model.P2;
+    result["P3"] = best_model.P3;
+    result["P4"] = best_model.P4;
+    result["X"] = best_model.X;
+    result["inliers"] = best_model.inlier;
     result["runtime"] = runtime_ms.count();
+    result["ransac"] = dict_from_ransac_stats(stats);
 
     return result;
 }
@@ -199,6 +218,51 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
     result["Xs"] = Xs;
     result["QFs"] = QFs;
     result["valid"] = total_valid;
+    result["runtime"] = runtime_ms.count();
+
+    return result;
+}
+
+
+py::dict radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x1,
+                                    const std::vector<Eigen::Vector2d> &x2,
+                                    const std::vector<Eigen::Vector2d> &x3,
+                                    const std::vector<Eigen::Vector2d> &x4, const py::dict &opt) {
+    TrackSettings track_settings;
+    StartSystem start_system;
+
+    if (opt.contains("start_system_file")) {
+        std::string filename = opt["start_system_file"].cast<std::string>();
+        start_system.load_start_system(filename);
+    } else {
+        start_system.load_default();
+    }
+
+    if (opt.contains("track_settings_file")) {
+        std::string filename = opt["track_settings_file"].cast<std::string>();
+
+        track_settings.load_settings(filename);
+    } else {
+        track_settings = settings_from_dict(opt);
+    }
+
+    std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+    std::vector<Eigen::Matrix<double, 16, 1>> QFs;
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    int valid = radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> runtime_ms = end_time - start_time;
+
+    py::dict result;
+    result["P1"] = P1;
+    result["P2"] = P2;
+    result["P3"] = P3;
+    result["P4"] = P4;
+    result["QFs"] = QFs;
+    result["valid"] = valid;
     result["runtime"] = runtime_ms.count();
 
     return result;
@@ -294,6 +358,10 @@ PYBIND11_MODULE(pyrqt, m) {
 
     m.def("metric_upgrade", &metric_upgrade_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"), py::arg("x4"),
           py::arg("P1"), py::arg("P2"), py::arg("P3"), py::arg("P4"), "Upgrades a projective reconstruction to metric.",
+          py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
+
+   m.def("ransac_quadrifocal", &ransac_quadrifocal_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
+          py::arg("x4"), py::arg("options"), "RANSAC estimator for radial quadrifocal tensor",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
     m.def("generate_start_system_code", &generate_start_system_code, py::arg("filename"),

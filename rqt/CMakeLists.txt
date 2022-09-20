@@ -1,5 +1,6 @@
 set(SOURCES
     radial_quadrifocal_solver.cc
+    quadrifocal_estimator.cc
     metric_upgrade.cc
     solver_det4.cc
     types.cc

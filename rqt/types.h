@@ -4,6 +4,7 @@
 #include <complex>
 #include <string>
 #include <vector>
+#include <limits>
 
 namespace rqt {
 
@@ -48,6 +49,23 @@ struct StartSystem {
 
     bool load_start_system(const std::string &filename);
     bool load_default();
+};
+
+
+struct RansacOptions {
+    size_t max_iterations = 100000;
+    size_t min_iterations = 1000;
+    double dyn_num_trials_mult = 3.0;
+    double success_prob = 0.9999;
+    double max_error = 12.0;    
+};
+
+struct RansacStats {
+    size_t refinements = 0;
+    size_t iterations = 0;
+    size_t num_inliers = 0;
+    double inlier_ratio = 0;
+    double model_score = std::numeric_limits<double>::max();
 };
 
 } // namespace rqt
