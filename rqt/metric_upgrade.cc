@@ -2,8 +2,6 @@
 
 #include "solver_det4.h"
 
-#include <iostream>
-
 namespace rqt {
 
 int filter_cheirality(const std::vector<Eigen::Vector2d> &x1, const std::vector<Eigen::Vector2d> &x2,

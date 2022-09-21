@@ -2,8 +2,48 @@
 #include "radial_quadrifocal_solver.h"
 #include "metric_upgrade.h"
 #include <iostream>
+#include <ceres/ceres.h>
 
 namespace rqt {
+
+// error for the radial projection
+struct RadialReprojError { 
+    RadialReprojError(const Eigen::Vector2d& x) : x_(x) {}
+
+    template <typename T>
+    bool operator()(const T* const qvec, const T* const tvec, const T* const Xvec, T* residuals) const {
+        Eigen::Quaternion<T> q;
+        q.coeffs() << qvec[0], qvec[1], qvec[2], qvec[3];
+
+        Eigen::Matrix<T, 3, 1> X;
+        X << Xvec[0], Xvec[1], Xvec[2];
+
+        Eigen::Matrix<T, 3, 1> Z = q.toRotationMatrix() * X;
+
+        Eigen::Matrix<T, 2, 1> t;
+        t << tvec[0], tvec[1];
+
+        Eigen::Matrix<T, 2, 1> z = (Z.template topRows<2>() + t).normalized();
+
+        Eigen::Matrix<T, 2, 1> xc;
+        xc << T(x_(0)), T(x_(1));
+
+        T alpha = z.dot(xc);                
+        residuals[0] = alpha * z(0) - xc(0);
+        residuals[1] = alpha * z(1) - xc(1);
+        return true;
+    }
+
+    // Factory function
+    static ceres::CostFunction* CreateCost(const Eigen::Vector2d &x) {
+        return (new ceres::AutoDiffCostFunction<RadialReprojError, 2, 4, 2, 3>(new RadialReprojError(x)));
+    }
+
+private:
+    const Eigen::Vector2d& x_;
+};
+
+
 
 void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) {
     std::uniform_int_distribution<int> rand_int(0, num_data);
@@ -21,12 +61,6 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
             sample.push_back(s);
     }
 
-    std::cout << "Drew sample: ";
-    for(int s : sample)
-        std::cout << s << ",";
-    std::cout << " out of " << num_data << " points." << std::endl;
-
-
     for(int i = 0; i < sample_sz; ++i) {
         x1s[i] = x1[sample[i]];
         x2s[i] = x2[sample[i]];
@@ -37,7 +71,7 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
     // Solve for projective cameras
     std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
     std::vector<Eigen::Matrix<double, 16, 1>> QFs;
-    int num_projective = radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
+    int num_projective = radial_quadrifocal_solver(x1s, x2s, x3s, x4s, start_system, track_settings, P1, P2, P3, P4, QFs);
 
     // Upgrade to metric
     std::vector<Eigen::Matrix<double, 2, 4>> P1_calib, P2_calib, P3_calib, P4_calib;
@@ -45,15 +79,12 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
     int total_valid = 0;
     for (int i = 0; i < num_projective; ++i) {
         int valid =
-            metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+            metric_upgrade(x1s, x2s, x3s, x4s, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
         total_valid += valid;
     }
 
-    std::cout << "Found " << total_valid << " calibrated factorizations satisfying cheirality." << std::endl;
-
     models->clear();
     for(int i = 0; i < total_valid; ++i) {        
-        std::cout << "Triangulating " << i << "\n";
         Reconstruction rec;
         rec.P1 = P1_calib[i];
         rec.P2 = P2_calib[i];
@@ -73,7 +104,6 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
         triangulate(rec);
         models->push_back(rec);
     }
-    std::cout << "generate_models done. Found " << models->size() << " models" << std::endl;
 }
 
 double QuadrifocalEstimator::score_model(Reconstruction &rec, size_t *inlier_count) const {
@@ -114,8 +144,77 @@ double QuadrifocalEstimator::score_model(Reconstruction &rec, size_t *inlier_cou
     return score;
 }
 
-void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
 
+Eigen::Matrix3d complete_rotation(const Eigen::Matrix<double,2,3> &R_2x3) {
+    Eigen::Matrix3d R;
+    R.block<2,3>(0,0) = R_2x3;
+    R.row(0).normalize();
+    // We orthogonalize here just in case
+    R.row(1) = R.row(1) - R.row(1).dot(R.row(0)) * R.row(0);
+    R.row(1).normalize();
+    R.row(2) = R.row(0).cross(R.row(1));    
+    return R;
+}
+
+void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
+    Eigen::Quaterniond q1(complete_rotation(rec->P1.block<2,3>(0,0)));
+    Eigen::Quaterniond q2(complete_rotation(rec->P2.block<2,3>(0,0)));
+    Eigen::Quaterniond q3(complete_rotation(rec->P3.block<2,3>(0,0)));
+    Eigen::Quaterniond q4(complete_rotation(rec->P4.block<2,3>(0,0)));
+
+    Eigen::Vector2d t1 = rec->P1.col(3);
+    Eigen::Vector2d t2 = rec->P2.col(3);
+    Eigen::Vector2d t3 = rec->P3.col(3);
+    Eigen::Vector2d t4 = rec->P4.col(3);
+
+    
+    ceres::Problem problem;
+    ceres::LossFunction* loss_function = nullptr;;
+    ceres::CostFunction* cost;
+
+    int num_inliers = 0;
+    for(int i = 0; i < num_data; ++i) {
+        if(!rec->inlier[i]) {
+            continue;
+        }
+
+        problem.AddResidualBlock(RadialReprojError::CreateCost(x1[i]), loss_function, q1.coeffs().data(), t1.data(), rec->X[i].data());
+        problem.AddResidualBlock(RadialReprojError::CreateCost(x2[i]), loss_function, q2.coeffs().data(), t2.data(), rec->X[i].data());
+        problem.AddResidualBlock(RadialReprojError::CreateCost(x3[i]), loss_function, q3.coeffs().data(), t3.data(), rec->X[i].data());
+        problem.AddResidualBlock(RadialReprojError::CreateCost(x4[i]), loss_function, q4.coeffs().data(), t4.data(), rec->X[i].data());
+
+        num_inliers += 1;
+    }
+    
+    if(num_inliers <= 13) {
+        return;
+    }
+      
+    problem.SetParameterization(q1.coeffs().data(), new ceres::EigenQuaternionParameterization());
+    problem.SetParameterization(q2.coeffs().data(), new ceres::EigenQuaternionParameterization());
+    problem.SetParameterization(q3.coeffs().data(), new ceres::EigenQuaternionParameterization());
+    problem.SetParameterization(q4.coeffs().data(), new ceres::EigenQuaternionParameterization());
+
+    // Fix gauge-freedom
+    problem.SetParameterBlockConstant(q1.coeffs().data());
+    problem.SetParameterBlockConstant(t1.data());
+    problem.SetParameterization(t2.data(), new ceres::SubsetParameterization(2, {0}));
+
+    ceres::Solver::Options options;
+    options.linear_solver_type = ceres::SPARSE_SCHUR;
+    options.minimizer_progress_to_stdout = false;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+
+    // Update reconstruction with new cameras
+    rec->P1.block<2,3>(0,0) = q1.toRotationMatrix().block<2,3>(0,0);
+    rec->P1.col(3) = t1;
+    rec->P2.block<2,3>(0,0) = q2.toRotationMatrix().block<2,3>(0,0);
+    rec->P1.col(3) = t2;
+    rec->P3.block<2,3>(0,0) = q3.toRotationMatrix().block<2,3>(0,0);
+    rec->P1.col(3) = t3;
+    rec->P4.block<2,3>(0,0) = q4.toRotationMatrix().block<2,3>(0,0);
+    rec->P1.col(3) = t4;
 }
 
 
