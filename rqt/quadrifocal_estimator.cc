@@ -1,7 +1,6 @@
 #include "quadrifocal_estimator.h"
 #include "radial_quadrifocal_solver.h"
 #include "metric_upgrade.h"
-#include <iostream>
 #include <ceres/ceres.h>
 
 namespace rqt {
