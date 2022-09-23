@@ -40,7 +40,6 @@ function (register_package PACKAGE_FOLDER)
   endif ()
 
   string (MD5 REGISTRY_ENTRY "${PACKAGE_FOLDER}")
-
   if (WIN32)
     install (CODE
       "execute_process (
@@ -69,5 +68,7 @@ endfunction ()
 
 # CMake Register (install directory)
 if(CMAKE_REGISTRY_FOLDER STREQUAL "INSTALL_FOLDER")
+if(GENERATE_INSTALL)
   register_package(${CONFIG_INSTALL_DIR})
-endif ()
+endif()
+endif()

@@ -105,8 +105,10 @@ configure_package_config_file(
 configure_file("${PROJECT_SOURCE_DIR}/cmake/Uninstall.cmake.in"
   "${GENERATED_DIR}/Uninstall.cmake"
   IMMEDIATE @ONLY)
-add_custom_target(uninstall
-  COMMAND ${CMAKE_COMMAND} -P ${GENERATED_DIR}/Uninstall.cmake)
+if(GENERATE_INSTALL)
+  add_custom_target(uninstall
+    COMMAND ${CMAKE_COMMAND} -P ${GENERATED_DIR}/Uninstall.cmake)
+endif()
 
 # Always full RPATH (for shared libraries)
 #  https://gitlab.kitware.com/cmake/community/-/wikis/doc/cmake/RPATH-handling
