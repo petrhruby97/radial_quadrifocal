@@ -27,6 +27,7 @@ target_include_directories(
 #   - <prefix>/lib/librqt.a
 #   - header location after install: <prefix>/rqt/rqt.h
 #   - headers can be included by C++ code `#include <rqt/rqt.h>`
+if(GENERATE_INSTALL)
 install(
     TARGETS              "${LIBRARY_NAME}"
     EXPORT               "${TARGETS_EXPORT_NAME}"
@@ -69,3 +70,4 @@ install(
   DESTINATION "${CONFIG_INSTALL_DIR}"
   NAMESPACE   "${PROJECT_NAME}::"
 )
+endif()

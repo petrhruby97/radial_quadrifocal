@@ -10,8 +10,10 @@ set(SOURCES
 # Set HEADERS_PUBLIC variable
 set(HEADERS_PUBLIC    
     radial_quadrifocal_solver.h
+    quadrifocal_estimator.h
     metric_upgrade.h
     types.h
+    ransac_impl.h
 )
 
 # library configuration

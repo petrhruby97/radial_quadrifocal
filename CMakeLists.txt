@@ -5,8 +5,9 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
 set(CMAKE_CXX_STANDARD 17)
 
 # Set variables
-set(LIBRARY_NAME   ${PROJECT_NAME})
-set(LIBRARY_FOLDER ${PROJECT_NAME})
+set(LIBRARY_NAME   rqt)
+set(LIBRARY_FOLDER rqt)
+option(GENERATE_INSTALL "Whether to generate install/uninstall targets" OFF)
 include(${PROJECT_SOURCE_DIR}/cmake/SetEnv.cmake)
 
 option(ASAN_BUILD "Build with address sanitizer" OFF)
