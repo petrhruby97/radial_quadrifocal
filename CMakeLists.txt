@@ -17,7 +17,7 @@ if (ASAN_BUILD)
 endif ()
 
 # Eigen
-find_package(Eigen3 3.4 REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
 
