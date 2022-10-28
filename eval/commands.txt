@@ -1,0 +1,6 @@
+python3 ./stability_test_our13.py > results/stability_13.txt
+
+python3 ./noise_test_our13.py > results/noise_13.txt 
+python3 ./noise_test_lin15.py > results/noise_15.txt 
+python3 ./noise_test_our7.py > results/noise_7.txt 
+

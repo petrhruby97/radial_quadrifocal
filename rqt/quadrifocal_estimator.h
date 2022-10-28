@@ -40,7 +40,7 @@ class QuadrifocalEstimator {
     const size_t sample_sz = 13;
     const size_t num_data;
 
-  private:
+  public:
     void triangulate(Reconstruction &rec);
 
   private:

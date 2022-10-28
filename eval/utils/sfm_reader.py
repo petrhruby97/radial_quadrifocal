@@ -6,7 +6,7 @@ import numpy as np
 import random
 from pathlib import Path
 from tqdm import tqdm
-import pytsamp
+#import pytsamp
 
 def pair_id_to_image_ids(pair_id):
     image_id2 = pair_id % 2147483647
@@ -124,7 +124,10 @@ def extract_tuple_matches(cursor, tuple, cycle_consistency=False, verified_match
 def load_tuples(sfm_path, num_tuples, min_shared_pts=20, database_name='database.db',
                verified_matches=False, cycle_consistency=False, uniform_images=True, return_pairs=False):
     sfm_path = Path(sfm_path)
-    cameras, images, points3D = read_write_model.read_model(sfm_path, ext=".bin")
+    try:
+        cameras, images, points3D = read_write_model.read_model(sfm_path, ext=".bin")
+    except:
+        cameras, images, points3D = read_write_model.read_model(sfm_path, ext=".txt")
 
     connection = sqlite3.connect(sfm_path / database_name)
     cursor = connection.cursor()
@@ -132,6 +135,8 @@ def load_tuples(sfm_path, num_tuples, min_shared_pts=20, database_name='database
     # To generate the pairs we select a random 3D point and take two random cameras which see this point
     point3D_ids = list(points3D.keys())
     image_ids = list(images.keys())
+    #print(images)
+    #print(image_ids)
     print(f'{sfm_path} contains {len(image_ids)} images')
 
     tuple_set = set()
@@ -152,9 +157,11 @@ def load_tuples(sfm_path, num_tuples, min_shared_pts=20, database_name='database
                 candidate_tuple = np.random.choice(im_ids, 4, replace=False)
                 candidate_tuple = tuple(sorted(candidate_tuple))
 
+
             if candidate_tuple in tuple_set:
                 continue
 
+            print(candidate_tuple)
 
 
             # check number of shared points
@@ -170,7 +177,7 @@ def load_tuples(sfm_path, num_tuples, min_shared_pts=20, database_name='database
 
             # Okay we have a good pair, time to get the raw matches from the database
             x1,x2,x3,x4 = extract_tuple_matches(cursor, candidate_tuple, cycle_consistency, verified_matches)
-            
+
             if len(x1) < min_shared_pts:
                 continue
 

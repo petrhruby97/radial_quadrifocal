@@ -1,0 +1,3 @@
+python3 ./stability_test_lin15.py > results/stability_15.txt 
+python3 ./stability_test_our13.py > results/stability_13.txt 
+
