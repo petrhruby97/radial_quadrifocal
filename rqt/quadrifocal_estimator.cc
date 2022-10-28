@@ -168,7 +168,8 @@ void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
 
     
     ceres::Problem problem;
-    ceres::LossFunction* loss_function = nullptr;;
+    //ceres::LossFunction* loss_function = nullptr;;
+    ceres::LossFunction* loss_function = new ceres::TrivialLoss();
     ceres::CostFunction* cost;
 
     int num_inliers = 0;
@@ -209,11 +210,11 @@ void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
     rec->P1.block<2,3>(0,0) = q1.toRotationMatrix().block<2,3>(0,0);
     rec->P1.col(3) = t1;
     rec->P2.block<2,3>(0,0) = q2.toRotationMatrix().block<2,3>(0,0);
-    rec->P1.col(3) = t2;
+    rec->P2.col(3) = t2;
     rec->P3.block<2,3>(0,0) = q3.toRotationMatrix().block<2,3>(0,0);
-    rec->P1.col(3) = t3;
+    rec->P3.col(3) = t3;
     rec->P4.block<2,3>(0,0) = q4.toRotationMatrix().block<2,3>(0,0);
-    rec->P1.col(3) = t4;
+    rec->P4.col(3) = t4;
 }
 
 

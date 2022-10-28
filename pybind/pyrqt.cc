@@ -268,6 +268,35 @@ py::dict radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x
     return result;
 }
 
+
+py::dict triangulate_wrapper(const std::vector<Eigen::Vector2d> &x1,
+                             const std::vector<Eigen::Vector2d> &x2,
+                             const std::vector<Eigen::Vector2d> &x3,
+                             const std::vector<Eigen::Vector2d> &x4,
+			     const Eigen::Matrix<double, 2, 4> &P1,
+			     const Eigen::Matrix<double, 2, 4> &P2,
+			     const Eigen::Matrix<double, 2, 4> &P3,
+			     const Eigen::Matrix<double, 2, 4> &P4)
+{
+	//std::cout << "triangulate\n";
+	//std::cout << P1 << "\n\n";
+	rqt::RansacOptions ransac_opt;
+	rqt::StartSystem ss;
+	rqt::TrackSettings ts;
+	rqt::QuadrifocalEstimator qfe(ransac_opt, x1, x2, x3, x4, ss, ts);
+
+	rqt::QuadrifocalEstimator::Reconstruction rec;
+	rec.P1 = P1;
+	rec.P2 = P2;
+	rec.P3 = P3;
+	rec.P4 = P4;
+	qfe.triangulate(rec);
+	//std::cout << rec.X.size() << "\n";
+    	py::dict result;
+	result["Xs"] = rec.X;
+	return result;
+}
+
 py::dict metric_upgrade_wrapper(const std::vector<Eigen::Vector2d> &x1, const std::vector<Eigen::Vector2d> &x2,
                                 const std::vector<Eigen::Vector2d> &x3, const std::vector<Eigen::Vector2d> &x4,
                                 const Eigen::Matrix<double, 2, 4> &P1, const Eigen::Matrix<double, 2, 4> &P2,
@@ -362,6 +391,10 @@ PYBIND11_MODULE(pyrqt, m) {
 
    m.def("ransac_quadrifocal", &ransac_quadrifocal_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
           py::arg("x4"), py::arg("options"), "RANSAC estimator for radial quadrifocal tensor",
+          py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
+
+   m.def("triangulate", &triangulate_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
+          py::arg("x4"), py::arg("P1"), py::arg("P2"), py::arg("P3"), py::arg("P4"), "Triangulates the lines",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
     m.def("generate_start_system_code", &generate_start_system_code, py::arg("filename"),

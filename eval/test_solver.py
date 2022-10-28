@@ -138,6 +138,9 @@ def setup_synthetic_scene():
 
 xx, PP_gt, X = setup_synthetic_scene()
 
+dct = pyrqt.triangulate(xx[0], xx[1], xx[2], xx[3], PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
+print(dct["Xs"])
+
 
 T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
 
