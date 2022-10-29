@@ -8,6 +8,12 @@
 
 namespace rqt {
 
+enum class MinimalSolver {
+    MINIMAL = 0,
+    LINEAR = 1,
+    UPRIGHT = 2
+};
+
 struct TrackSettings {
     TrackSettings()
         : init_dt_(0.05),                                          // m2 tStep, t_step, raw interface code initDt
@@ -47,8 +53,8 @@ struct StartSystem {
     std::vector<std::complex<double>> problem;
     std::vector<std::vector<std::complex<double>>> sols;
 
-    bool load_start_system(const std::string &filename);
-    bool load_default();
+    bool load_start_system(const std::string &filename, MinimalSolver solver);
+    bool load_default(MinimalSolver solver);
 };
 
 
@@ -57,7 +63,8 @@ struct RansacOptions {
     size_t min_iterations = 1000;
     double dyn_num_trials_mult = 3.0;
     double success_prob = 0.9999;
-    double max_error = 12.0;    
+    double max_error = 12.0;
+    MinimalSolver solver = MinimalSolver::MINIMAL;
 };
 
 struct RansacStats {

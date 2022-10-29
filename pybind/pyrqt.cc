@@ -59,6 +59,19 @@ py::dict dict_from_ransac_stats(const RansacStats &stats) {
     return result;
 }
 
+MinimalSolver solver_from_string(const std::string &solv) {
+    std::string solv_str = solv;
+    for (char &c : solv_str)
+        c = std::toupper(c);
+    if(solv_str == "MINIMAL") {
+        return MinimalSolver::MINIMAL;
+    } else if(solv_str == "LINEAR") {
+        return MinimalSolver::LINEAR;
+    } else if(solv_str == "UPRIGHT") {
+        return MinimalSolver::UPRIGHT;
+    }
+    return MinimalSolver::MINIMAL; // default
+}
 
 RansacOptions ransac_options_from_dict(const py::dict &opt_dict) {
     RansacOptions ransac_options;
@@ -67,6 +80,12 @@ RansacOptions ransac_options_from_dict(const py::dict &opt_dict) {
     update(opt_dict, "dyn_num_trials_mult", ransac_options.dyn_num_trials_mult);
     update(opt_dict, "success_prob", ransac_options.success_prob);
     update(opt_dict, "max_error", ransac_options.max_error);
+
+    if (opt_dict.contains("solver")) {
+        std::string solv_str = opt_dict["solver"].cast<std::string>();
+        ransac_options.solver = solver_from_string(solv_str);
+    }
+
     //update(opt_dict, "seed", ransac_options.seed);
     return ransac_options;
 }
@@ -126,14 +145,16 @@ py::dict ransac_quadrifocal_wrapper(const std::vector<Eigen::Vector2d> &x1,
                                            const std::vector<Eigen::Vector2d> &x2,
                                            const std::vector<Eigen::Vector2d> &x3,
                                            const std::vector<Eigen::Vector2d> &x4, const py::dict &opt) {
+    
+    RansacOptions ransac_opt = ransac_options_from_dict(opt);
     TrackSettings track_settings;
     StartSystem start_system;
 
     if (opt.contains("start_system_file")) {
         std::string filename = opt["start_system_file"].cast<std::string>();
-        start_system.load_start_system(filename);
+        start_system.load_start_system(filename,ransac_opt.solver);
     } else {
-        start_system.load_default();
+        start_system.load_default(ransac_opt.solver);
     }
 
     if (opt.contains("track_settings_file")) {
@@ -144,7 +165,6 @@ py::dict ransac_quadrifocal_wrapper(const std::vector<Eigen::Vector2d> &x1,
         track_settings = settings_from_dict(opt);
     }
 
-    RansacOptions ransac_opt = ransac_options_from_dict(opt);
 
     QuadrifocalEstimator estimator(ransac_opt,x1,x2,x3,x4,start_system,track_settings);
     QuadrifocalEstimator::Reconstruction best_model;
@@ -172,14 +192,19 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
                                                       const std::vector<Eigen::Vector2d> &x2,
                                                       const std::vector<Eigen::Vector2d> &x3,
                                                       const std::vector<Eigen::Vector2d> &x4, const py::dict &opt) {
+    MinimalSolver solver = MinimalSolver::MINIMAL;
+    if(opt.contains("solver")) {
+        solver = solver_from_string(opt["solver"].cast<std::string>());
+    }
+
     TrackSettings track_settings;
     StartSystem start_system;
 
     if (opt.contains("start_system_file")) {
         std::string filename = opt["start_system_file"].cast<std::string>();
-        start_system.load_start_system(filename);
+        start_system.load_start_system(filename,solver);
     } else {
-        start_system.load_default();
+        start_system.load_default(solver);
     }
 
     if (opt.contains("track_settings_file")) {
@@ -190,21 +215,27 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
         track_settings = settings_from_dict(opt);
     }
 
-    std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
-    std::vector<Eigen::Matrix<double, 16, 1>> QFs;
-
-    auto start_time = std::chrono::high_resolution_clock::now();
-
-    int num_projective = radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
-
     std::vector<Eigen::Matrix<double, 2, 4>> P1_calib, P2_calib, P3_calib, P4_calib;
+    std::vector<Eigen::Matrix<double, 16, 1>> QFs;
     std::vector<std::vector<Eigen::Vector3d>> Xs;
 
+    auto start_time = std::chrono::high_resolution_clock::now();
     int total_valid = 0;
-    for (int i = 0; i < num_projective; ++i) {
-        int valid =
-            metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
-        total_valid += valid;
+
+    if(solver == MinimalSolver::MINIMAL) {
+        std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+        int num_projective = radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
+
+        for (int i = 0; i < num_projective; ++i) {
+            int valid =
+                metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+            total_valid += valid;
+        }
+    } else if(solver == MinimalSolver::LINEAR) {
+        // TODO FILL IN HERE
+        // result should be in P1_calib, Xs and QFs
+    } else if(solver == MinimalSolver::UPRIGHT) {
+        // TODO FILL IN HERE
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -233,9 +264,9 @@ py::dict radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x
 
     if (opt.contains("start_system_file")) {
         std::string filename = opt["start_system_file"].cast<std::string>();
-        start_system.load_start_system(filename);
+        start_system.load_start_system(filename, MinimalSolver::MINIMAL);
     } else {
-        start_system.load_default();
+        start_system.load_default(MinimalSolver::MINIMAL);
     }
 
     if (opt.contains("track_settings_file")) {
@@ -319,13 +350,22 @@ py::dict metric_upgrade_wrapper(const std::vector<Eigen::Vector2d> &x1, const st
 }
 
 // Helper function for generating C++ code for hard-coding starting systems
-void generate_start_system_code(const std::string &filename) {
+void generate_start_system_code(const std::string &filename, const std::string &solver_str) {
+    MinimalSolver solver = solver_from_string(solver_str);
     StartSystem start_system;
-    start_system.load_start_system(filename);
+    start_system.load_start_system(filename, solver);
+
+    std::string problem_name = "default_problem";
+    std::string sols_name = "default_sols";
+
+    if(solver == MinimalSolver::UPRIGHT) {
+        problem_name = "upright_problem";
+        sols_name = "upright_sols";
+    }
 
     std::cout << std::setprecision(16);
     int n = start_system.problem.size();
-    std::cout << "std::complex<double> default_problem[" << n << "] = {";
+    std::cout << "std::complex<double> " << problem_name << "[" << n << "] = {";
     for (int i = 0; i < n; ++i) {
         std::cout << "{" << start_system.problem[i].real() << "," << start_system.problem[i].imag() << "}";
         if (i < n - 1) {
@@ -337,7 +377,7 @@ void generate_start_system_code(const std::string &filename) {
 
     int n1 = start_system.sols.size();
     int n2 = start_system.sols[0].size();
-    std::cout << "std::complex<double> default_sols[" << n1 << "][" << n2 << "] = {\n";
+    std::cout << "std::complex<double> " << sols_name << "[" << n1 << "][" << n2 << "] = {\n";
     for (int i = 0; i < n1; ++i) {
         std::cout << "{";
         for (int j = 0; j < n2; ++j) {
@@ -397,9 +437,9 @@ PYBIND11_MODULE(pyrqt, m) {
           py::arg("x4"), py::arg("P1"), py::arg("P2"), py::arg("P3"), py::arg("P4"), "Triangulates the lines",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
-    m.def("generate_start_system_code", &generate_start_system_code, py::arg("filename"),
+    m.def("generate_start_system_code", &generate_start_system_code, py::arg("filename"), py::arg("solver"),
           "Creates C++ code for hard-coding starting system.",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
-    m.attr("__version__") = std::string("0.0.1");
+    m.attr("__version__") = std::string("0.0.2");
 }

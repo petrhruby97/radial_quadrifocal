@@ -67,23 +67,32 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
         x4s[i] = x4[sample[i]];
     }
 
-    // Solve for projective cameras
-    std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
-    std::vector<Eigen::Matrix<double, 16, 1>> QFs;
-    int num_projective = radial_quadrifocal_solver(x1s, x2s, x3s, x4s, start_system, track_settings, P1, P2, P3, P4, QFs);
-
-    // Upgrade to metric
     std::vector<Eigen::Matrix<double, 2, 4>> P1_calib, P2_calib, P3_calib, P4_calib;
     std::vector<std::vector<Eigen::Vector3d>> Xs;
-    int total_valid = 0;
-    for (int i = 0; i < num_projective; ++i) {
-        int valid =
-            metric_upgrade(x1s, x2s, x3s, x4s, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
-        total_valid += valid;
+
+    if(opt.solver == MinimalSolver::MINIMAL) {
+        // Solve for projective cameras with minimal solver
+        std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+        std::vector<Eigen::Matrix<double, 16, 1>> QFs;
+        int num_projective = radial_quadrifocal_solver(x1s, x2s, x3s, x4s, start_system, track_settings, P1, P2, P3, P4, QFs);
+
+        // Upgrade to metric
+        int total_valid = 0;
+        for (int i = 0; i < num_projective; ++i) {
+            int valid =
+                metric_upgrade(x1s, x2s, x3s, x4s, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+            total_valid += valid;
+        }
+    } else if(opt.solver == MinimalSolver::LINEAR) {
+        // TODO call linear solver and fill in 
+        // P1_calib, P2_calib, etc
+    } else if(opt.solver == MinimalSolver::UPRIGHT) {
+        // TODO call upright solver and fill in 
+        // P1_calib, P2_calib, etc
     }
 
     models->clear();
-    for(int i = 0; i < total_valid; ++i) {        
+    for(int i = 0; i < P1_calib.size(); ++i) {        
         Reconstruction rec;
         rec.P1 = P1_calib[i];
         rec.P2 = P2_calib[i];
@@ -186,6 +195,7 @@ void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
         num_inliers += 1;
     }
     
+    // Minimum number of inliers for the refinement to be well-posed
     if(num_inliers <= 13) {
         return;
     }

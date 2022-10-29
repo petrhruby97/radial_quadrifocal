@@ -16,7 +16,7 @@ class QuadrifocalEstimator {
                          const std::vector<Eigen::Vector2d> &points2D_3,
                          const std::vector<Eigen::Vector2d> &points2D_4,
                          const StartSystem &ss, const TrackSettings &ts)
-        : num_data(points2D_1.size()), opt(ransac_opt),
+        : sample_sz(get_sample_sz(ransac_opt.solver)), num_data(points2D_1.size()), opt(ransac_opt),
           x1(points2D_1), x2(points2D_2), x3(points2D_3), x4(points2D_4),
           start_system(ss), track_settings(ts) {
         x1s.resize(sample_sz);
@@ -36,12 +36,23 @@ class QuadrifocalEstimator {
     void generate_models(std::vector<Reconstruction> *models);
     double score_model(Reconstruction &rec, size_t *inlier_count) const;
     void refine_model(Reconstruction *rec) const;
+    void triangulate(Reconstruction &rec);
 
-    const size_t sample_sz = 13;
+    const size_t sample_sz;
     const size_t num_data;
 
-  public:
-    void triangulate(Reconstruction &rec);
+  private:
+    size_t get_sample_sz(MinimalSolver solv) const {
+      if(solv == MinimalSolver::MINIMAL) {
+        return 13;
+      } else if(solv == MinimalSolver::LINEAR) {
+        return 15;
+      } else if(solv == MinimalSolver::UPRIGHT) {
+        return 7;
+      } else {
+        return -1;
+      }
+    }
 
   private:
     const RansacOptions &opt;
