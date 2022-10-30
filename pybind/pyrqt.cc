@@ -1,5 +1,8 @@
 #include "rqt/metric_upgrade.h"
+#include "rqt/upright_filter_cheirality.h"
 #include "rqt/radial_quadrifocal_solver.h"
+#include "rqt/linear_radial_quadrifocal_solver.h"
+#include "rqt/upright_radial_quadrifocal_solver.h"
 #include "rqt/types.h"
 #include "rqt/quadrifocal_estimator.h"
 #include "rqt/ransac_impl.h"
@@ -165,7 +168,6 @@ py::dict ransac_quadrifocal_wrapper(const std::vector<Eigen::Vector2d> &x1,
         track_settings = settings_from_dict(opt);
     }
 
-
     QuadrifocalEstimator estimator(ransac_opt,x1,x2,x3,x4,start_system,track_settings);
     QuadrifocalEstimator::Reconstruction best_model;
 
@@ -232,10 +234,25 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
             total_valid += valid;
         }
     } else if(solver == MinimalSolver::LINEAR) {
-        // TODO FILL IN HERE
-        // result should be in P1_calib, Xs and QFs
+        std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+        int num_projective = linear_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
+
+        for (int i = 0; i < num_projective; ++i) {
+            int valid =
+                metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+            total_valid += valid;
+        }
     } else if(solver == MinimalSolver::UPRIGHT) {
-        // TODO FILL IN HERE
+	// Solve for projective cameras
+        std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+        int num_projective = upright_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
+
+        // Upgrade to metric
+        for (int i = 0; i < num_projective; ++i) {
+            int valid =
+                upright_filter_cheirality(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+            total_valid += valid;
+        }
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();

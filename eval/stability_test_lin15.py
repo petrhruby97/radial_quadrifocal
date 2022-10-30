@@ -1,5 +1,5 @@
 import numpy as np
-import lin_pyrqt
+import pyrqt
 
 def make_tensor(P1,P2,P3,P4):
     T = np.zeros(16)
@@ -206,7 +206,7 @@ for x in range(100000):
 
     T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
 
-    out = lin_pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
+    out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {"solver": "LINEAR"})
     err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
 
     err_P = []

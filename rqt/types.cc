@@ -76,6 +76,10 @@ void get_system_parameters(MinimalSolver solver, size_t &problem_sz, size_t &sol
         problem_sz = 114;
         sols_sz = 25;
         sols_dim = 8;
+    /*} else if(solver == MinimalSolver::LINEAR) {
+	    problem_sz = 240;
+	    sols_sz = 1;
+	    sols_dim = 16;*/
     } else {
         problem_sz = 0;
         sols_sz = 0;

@@ -1,7 +1,10 @@
 set(SOURCES
     radial_quadrifocal_solver.cc
+    linear_radial_quadrifocal_solver.cc
+    upright_radial_quadrifocal_solver.cc
     quadrifocal_estimator.cc
     metric_upgrade.cc
+    upright_filter_cheirality.cc
     solver_det4.cc
     types.cc
 )
@@ -10,8 +13,11 @@ set(SOURCES
 # Set HEADERS_PUBLIC variable
 set(HEADERS_PUBLIC    
     radial_quadrifocal_solver.h
+    linear_radial_quadrifocal_solver.h
+    upright_radial_quadrifocal_solver.h
     quadrifocal_estimator.h
     metric_upgrade.h
+    upright_filter_cheirality.h
     types.h
     ransac_impl.h
 )

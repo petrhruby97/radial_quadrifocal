@@ -2,8 +2,6 @@ import utils.sfm_reader
 import numpy as np
 import random
 import pyrqt
-import lin_pyrqt
-import pyrqt_upright
 
 def compute_reprojection_error(xx, PP, X):
     repr_all = np.zeros((xx[0].shape[0], 0))
@@ -108,7 +106,7 @@ dataset = 'grossmunster'
 #dataset = 'kirchenge'
 #dataset = 'pipes'
 num_tuples = 20
-min_shared_pts = 18
+min_shared_pts = 108
 
 matches, poses, camera_dict = utils.sfm_reader.load_tuples(f'../data/{dataset}', num_tuples,
                                                               min_shared_pts=min_shared_pts,
@@ -190,7 +188,8 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
     opt = {
         'min_iterations': 10,
         'max_iterations': 100,
-        'max_reproj': 2.0
+        'max_reproj': 2.0,
+        'solver': 'MINIMAL'
     }
 
     out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,opt)
@@ -246,7 +245,14 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
         print("Translation "+str(camera_translation_error(Ps, Psgt)))
         print()
         
-    l_out = lin_pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,opt)
+    l_opt = {
+        'min_iterations': 10,
+        'max_iterations': 100,
+        'max_reproj': 2.0,
+        'solver': 'LINEAR'
+    }
+
+    l_out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,l_opt)
 
     if l_out['ransac']['num_inliers'] == 0:
         print(f'LINEAR: Found no reconstruction')
@@ -293,7 +299,14 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
         print(camera_rotation_error(PP, Psgt))
         print()
 
-    u_out = pyrqt_upright.ransac_quadrifocal(x1c,x2c,x3c,x4c,opt)
+    u_opt = {
+        'min_iterations': 10,
+        'max_iterations': 100,
+        'max_reproj': 2.0,
+        'solver': 'UPRIGHT'
+    }
+
+    u_out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,u_opt)
 
     if u_out['ransac']['num_inliers'] == 0:
         print(f'UPRIGHT: Found no reconstruction')

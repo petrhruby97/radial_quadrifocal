@@ -1,6 +1,9 @@
 #include "quadrifocal_estimator.h"
 #include "radial_quadrifocal_solver.h"
+#include "linear_radial_quadrifocal_solver.h"
+#include "upright_radial_quadrifocal_solver.h"
 #include "metric_upgrade.h"
+#include "upright_filter_cheirality.h"
 #include <ceres/ceres.h>
 
 namespace rqt {
@@ -84,11 +87,33 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
             total_valid += valid;
         }
     } else if(opt.solver == MinimalSolver::LINEAR) {
-        // TODO call linear solver and fill in 
-        // P1_calib, P2_calib, etc
+	// Solve for projective cameras
+        std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+        std::vector<Eigen::Matrix<double, 16, 1>> QFs;
+        int num_projective = linear_radial_quadrifocal_solver(x1s, x2s, x3s, x4s, start_system, track_settings, P1, P2, P3, P4, QFs);
+
+        // Upgrade to metric
+        std::vector<std::vector<Eigen::Vector3d>> Xs;
+        int total_valid = 0;
+        for (int i = 0; i < num_projective; ++i) {
+	    int valid =
+	        metric_upgrade(x1s, x2s, x3s, x4s, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+	    total_valid += valid;
+        }
     } else if(opt.solver == MinimalSolver::UPRIGHT) {
-        // TODO call upright solver and fill in 
-        // P1_calib, P2_calib, etc
+        // Solve for projective cameras
+        std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+        std::vector<Eigen::Matrix<double, 16, 1>> QFs;
+        int num_projective = upright_radial_quadrifocal_solver(x1s, x2s, x3s, x4s, start_system, track_settings, P1, P2, P3, P4, QFs);
+	
+	// Upgrade to metric
+	std::vector<std::vector<Eigen::Vector3d>> Xs;
+	int total_valid = 0;
+	for (int i = 0; i < num_projective; ++i) {
+	    int valid =
+		upright_filter_cheirality(x1s, x2s, x3s, x4s, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+	    total_valid += valid;
+	}
     }
 
     models->clear();
@@ -112,6 +137,7 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
         triangulate(rec);
         models->push_back(rec);
     }
+    //std::cout << P1_calib.size() << " " << models->size() << "\n";
 }
 
 double QuadrifocalEstimator::score_model(Reconstruction &rec, size_t *inlier_count) const {
@@ -181,6 +207,11 @@ void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
     ceres::LossFunction* loss_function = new ceres::TrivialLoss();
     ceres::CostFunction* cost;
 
+    //OLD VERSION USES THIS INSTEAD
+    /*ceres::Problem problem;
+    ceres::LossFunction* loss_function = nullptr;;
+    ceres::CostFunction* cost;*/
+
     int num_inliers = 0;
     for(int i = 0; i < num_data; ++i) {
         if(!rec->inlier[i]) {
@@ -196,6 +227,7 @@ void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
     }
     
     // Minimum number of inliers for the refinement to be well-posed
+    // THIS IS NOT COMPLETELY CORRECT BUT IT IS USED IN THE OLD VERSION -> NOT CAUSE OF THE PROBLEM
     if(num_inliers <= 13) {
         return;
     }

@@ -15,9 +15,10 @@ int filter_cheirality(const std::vector<Eigen::Vector2d> &x1, const std::vector<
                       std::vector<std::vector<Eigen::Vector3d>> &Xs) {
     Eigen::Matrix2d eps2;
     eps2 << 0, 1, -1, 0;
-    std::vector<Eigen::Vector3d> X(13);
+    const int sample_sz = x1.size();
+    std::vector<Eigen::Vector3d> X(sample_sz);
     double s1, s2, s3, s4;
-    for (int k = 0; k < 13; ++k) {
+    for (int k = 0; k < sample_sz; ++k) {
         // obtain the system whose solution is the homogeneous 3D point
         Eigen::Matrix4d A;
         A.row(0) = x1[k].transpose() * eps2 * P1;
