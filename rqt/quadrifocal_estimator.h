@@ -49,6 +49,10 @@ class QuadrifocalEstimator {
         return 15;
       } else if(solv == MinimalSolver::UPRIGHT) {
         return 7;
+      } else if(solv == MinimalSolver::NANSON) {
+        return 13;
+      } else if(solv == MinimalSolver::NANSON2) {
+        return 13;
       } else {
         return -1;
       }

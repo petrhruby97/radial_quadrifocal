@@ -1,0 +1,4 @@
+python3 ./stability_test_nanson2.py > ./results/stability_nanson2.txt
+python3 ./noise_test_nanson2.py > ./results/noise_nanson2.txt
+
+

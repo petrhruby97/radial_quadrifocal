@@ -11,7 +11,9 @@ namespace rqt {
 enum class MinimalSolver {
     MINIMAL = 0,
     LINEAR = 1,
-    UPRIGHT = 2
+    UPRIGHT = 2,
+    NANSON = 3,
+    NANSON2 = 4
 };
 
 struct TrackSettings {
