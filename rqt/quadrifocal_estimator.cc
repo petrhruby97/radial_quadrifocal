@@ -4,6 +4,7 @@
 #include "upright_radial_quadrifocal_solver.h"
 #include "nanson_radial_quadrifocal_solver.h"
 #include "nanson2_radial_quadrifocal_solver.h"
+#include "upright_nanson_radial_quadrifocal_solver.h"
 #include "metric_upgrade.h"
 #include "upright_filter_cheirality.h"
 #include <ceres/ceres.h>
@@ -134,6 +135,19 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         std::vector<Eigen::Matrix<double, 16, 1>> QFs;
         int num_projective = nanson2_radial_quadrifocal_solver(x1s, x2s, x3s, x4s, start_system, track_settings, P1, P2, P3, P4, QFs);
+
+        // Upgrade to metric
+        int total_valid = 0;
+        for (int i = 0; i < num_projective; ++i) {
+            int valid =
+                metric_upgrade(x1s, x2s, x3s, x4s, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+            total_valid += valid;
+        }
+    } else if(opt.solver == MinimalSolver::UPRIGHT_NANSON) {
+        // Solve for projective cameras with minimal solver
+        std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+        std::vector<Eigen::Matrix<double, 16, 1>> QFs;
+        int num_projective = upright_nanson_radial_quadrifocal_solver(x1s, x2s, x3s, x4s, start_system, track_settings, P1, P2, P3, P4, QFs);
 
         // Upgrade to metric
         int total_valid = 0;

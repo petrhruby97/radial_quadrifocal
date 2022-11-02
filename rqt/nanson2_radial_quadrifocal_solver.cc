@@ -302,6 +302,7 @@ int nanson2_radial_quadrifocal_solver(const std::vector<Eigen::Vector2d> &p1s, c
 		{
 			//construct the QF tensor
 			Eigen::Matrix<double,16,1> QF = solution[0].real()*QF1 + solution[1].real()*QF2 + QF3;
+			//std::cout << QF << "\n\n";
 			
 			//decompose the QF tensor to get uncalibrated camera matrices
 			Eigen::Matrix<double, 2, 4> Ps[32];

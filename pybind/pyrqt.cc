@@ -5,6 +5,7 @@
 #include "rqt/upright_radial_quadrifocal_solver.h"
 #include "rqt/nanson_radial_quadrifocal_solver.h"
 #include "rqt/nanson2_radial_quadrifocal_solver.h"
+#include "rqt/upright_nanson_radial_quadrifocal_solver.h"
 #include "rqt/types.h"
 #include "rqt/quadrifocal_estimator.h"
 #include "rqt/ransac_impl.h"
@@ -78,6 +79,8 @@ MinimalSolver solver_from_string(const std::string &solv) {
         return MinimalSolver::NANSON;
     } else if(solv_str == "NANSON2") {
         return MinimalSolver::NANSON2;
+    } else if(solv_str == "UPRIGHT_NANSON") {
+        return MinimalSolver::UPRIGHT_NANSON;
     }
     return MinimalSolver::MINIMAL; // default
 }
@@ -269,14 +272,29 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
             total_valid += valid;
         }
     } else if(solver == MinimalSolver::NANSON2) {
+	//std::cout << "N2\n";
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         int num_projective = nanson2_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
+	//std::cout << num_projective << "\n";
 
         for (int i = 0; i < num_projective; ++i) {
             int valid =
                 metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
             total_valid += valid;
         }
+	//std::cout << total_valid << "\n";
+    } else if(solver == MinimalSolver::UPRIGHT_NANSON) {
+	std::cout << "UN\n";
+        std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
+        int num_projective = upright_nanson_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
+	std::cout << num_projective << "\n";
+
+        for (int i = 0; i < num_projective; ++i) {
+            int valid =
+                metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
+            total_valid += valid;
+        }
+	std::cout << total_valid << "\n";
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();

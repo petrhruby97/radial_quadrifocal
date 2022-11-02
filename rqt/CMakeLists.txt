@@ -4,6 +4,7 @@ set(SOURCES
     upright_radial_quadrifocal_solver.cc
     nanson_radial_quadrifocal_solver.cc
     nanson2_radial_quadrifocal_solver.cc
+    upright_nanson_radial_quadrifocal_solver.cc
     quadrifocal_estimator.cc
     metric_upgrade.cc
     upright_filter_cheirality.cc
@@ -19,6 +20,7 @@ set(HEADERS_PUBLIC
     upright_radial_quadrifocal_solver.h
     nanson_radial_quadrifocal_solver.h
     nanson2_radial_quadrifocal_solver.h
+    upright_nanson_radial_quadrifocal_solver.h
     quadrifocal_estimator.h
     metric_upgrade.h
     upright_filter_cheirality.h

@@ -13,7 +13,8 @@ enum class MinimalSolver {
     LINEAR = 1,
     UPRIGHT = 2,
     NANSON = 3,
-    NANSON2 = 4
+    NANSON2 = 4,
+    UPRIGHT_NANSON = 5
 };
 
 struct TrackSettings {

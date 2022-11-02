@@ -143,9 +143,14 @@ def load_tuples(sfm_path, num_tuples, min_shared_pts=20, database_name='database
     tuples = []
     poses = []
     matches = []
+    num_trials = 0
 
     with tqdm(total=num_tuples, desc='Number of pairs selected') as pbar:
         while len(tuples) < num_tuples:
+            num_trials += 1
+            #print(num_trials)
+            if num_trials > 40000:
+            	break
             if uniform_images:
                 candidate_tuple = tuple(sorted(np.random.choice(image_ids, 4, replace=False)))
             else: # Uniform random 3D points; this may bias selection towards images with lots of points
@@ -161,7 +166,7 @@ def load_tuples(sfm_path, num_tuples, min_shared_pts=20, database_name='database
             if candidate_tuple in tuple_set:
                 continue
 
-            print(candidate_tuple)
+            #print(candidate_tuple)
 
 
             # check number of shared points
