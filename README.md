@@ -5,7 +5,7 @@ This is the implementation of paper [Four-view geometry with unknown radial dist
 ## Bibtex
 If you use the code in your project, please cite:
 ```
-@inproceedings{Fabbri_2020_TRPLP,
+@inproceedings{Hruby_2023,
   author       = {Petr Hruby and
                   Viktor Korotynskiy and
                   Timothy Duff and
