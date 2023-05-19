@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #include "linear_radial_quadrifocal_solver.h"
 
 #include "solver_det4.h"

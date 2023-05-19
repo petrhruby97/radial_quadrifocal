@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #include "types.h"
 
 #include <fstream>

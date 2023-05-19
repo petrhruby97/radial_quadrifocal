@@ -157,22 +157,12 @@ def camera_rotation_error(PP_est,PP_gt):
 
 
             Rdiff = Rgt.T @ R
-            #print(R)
-            #print(Rgt)
             cs = (Rdiff.trace()-1)/2
             if(cs > 1):
                 cs = 1
             elif cs < -1:
                 cs = -1
-            #print(cs)
-            #print()
-            #print(Rdiff)
-            #print((Rdiff.trace()-1)/2)
             cur_err = np.max([cur_err, np.arccos(cs)])
-            #print((Rdiff.trace()-1)/2)
-            #print(cur_err)
-        #print(cur_err)
-
 
         err = np.min([err, cur_err])
     return err
@@ -210,20 +200,21 @@ def camera_translation_error(PP_est,PP_gt):
     return err
 
 
-
+#Generate 100000 noiseless samples
 for x in range(100000):
+    #Setup synthetic scene.
     xx, PP_gt, X = setup_synthetic_scene()
-
     T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
 
-    out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {"solver": "NANSON2"})
+    #Solve the problem.
+    out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
     err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
-
 
     err_P = []
     err_R = []
     err_T = []
 
+    #Measure the error.
     for i in range(out['valid']):
         P1 = out['P1'][i]
         P2 = out['P2'][i]
@@ -234,21 +225,9 @@ for x in range(100000):
         err_R.append(camera_rotation_error([P1,P2,P3,P4], PP_gt))
         err_T.append(camera_translation_error([P1,P2,P3,P4], PP_gt))
 
+    #Print out the error.
     if(len(err_P)>0):
         print(str(min(err_P))+" "+str(min(err_R))+" "+str(min(err_T)))
     else:
         print("1 3.14 3.14")
-
-
-
-
-## Validate the synthetic instance
-#eps = np.array([[0, -1], [1, 0]])
-#for k in range(4):
-#    proj = (PP[k][0:2,0:3] @ X.T).T + PP[k][0:2,3]
-#
-#    for i in range(13):
-#        err = proj[i] @ eps @ xx[k][i].T
-#        infront = np.dot(proj[i], xx[k][i]) > 0
-#        print(err, infront)
 

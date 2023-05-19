@@ -1,3 +1,4 @@
+// \author Viktor Larsson
 #ifndef RQT_SOLVER_DET4
 #define RQT_SOLVER_DET4
 

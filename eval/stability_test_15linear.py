@@ -1,5 +1,4 @@
 import numpy as np
-import lin_pyrqt
 import pyrqt
 
 def make_tensor(P1,P2,P3,P4):
@@ -51,9 +50,73 @@ def camera_error_modulo_flips(PP_est,PP_gt):
         err = np.min([err, e1+e2+e3+e4])         
     return err
     
+def camera_rotation_error(PP_est,PP_gt):
+    err = 10000
+    for z in [-1,1]:
+        H = np.diag([1,1,z,1])
+
+        cur_err = 0
+        for i in range(1,4):
+            PPi = PP_est[i] @ H
+            r1 = PPi[0,0:3]
+            r2 = PPi[1,0:3]
+            R = np.stack([r1, r2, np.cross(r1, r2)])
+            if np.linalg.det(R) < 0:
+                R = np.stack([r1, r2, -np.cross(r1, r2)])
+
+            r1gt = PP_gt[i][0,0:3]
+            r2gt = PP_gt[i][1,0:3]
+            Rgt = np.stack([r1gt, r2gt, np.cross(r1gt, r2gt)])
+            if np.linalg.det(Rgt) < 0:
+                Rgt = np.stack([r1gt, r2gt, -np.cross(r1gt, r2gt)])
+
+
+            Rdiff = Rgt.T @ R
+            cs = (Rdiff.trace()-1)/2
+            if(cs > 1):
+                cs = 1
+            elif cs < -1:
+                cs = -1
+            cur_err = np.max([cur_err, np.arccos(cs)])
+
+        err = np.min([err, cur_err])
+    return err
+
+def translation_dist(P1, P2):
+        u1, s1, v1 = np.linalg.svd(P1)
+        a1 = v1[2,0:3]/v1[2,3]
+        a1_ = v1[3,0:3]/v1[3,3]
+        b1 = a1_-a1
+        b1 = b1/np.linalg.norm(b1)
+
+        u2, s2, v2 = np.linalg.svd(P2)
+        a2 = v2[2,0:3]/v2[2,3]
+        a2_ = v2[3,0:3]/v2[3,3]
+        b2 = a2_-a2
+        b2 = b2/np.linalg.norm(b2)
+
+        cr = np.cross(b1,b2)
+        cr = cr/np.linalg.norm(cr)
+
+        return np.dot(cr,(a2-a1))
+
+def camera_translation_error(PP_est,PP_gt):
+    err = 10000
+    for z in [-1,1]:
+        H = np.diag([1,1,z,1])
+
+        d2 = translation_dist(PP_est[1], PP_gt[1])
+        d3 = translation_dist(PP_est[2], PP_gt[2])
+        d4 = translation_dist(PP_est[3], PP_gt[3])
+        c_err = np.max(np.abs([d2,d3,d4]))
+
+        err = np.min([err, c_err])
+    return err
+
+
 
 def setup_synthetic_scene():
-    X = np.random.rand(13,3)
+    X = np.random.rand(15,3)
     X = 2*(X - 0.5)
 
     c1 = np.random.randn(3)
@@ -137,36 +200,34 @@ def setup_synthetic_scene():
     return (xx, PP, X)
 
 
-xx, PP_gt, X = setup_synthetic_scene()
+#Generate 100000 noiseless samples
+for x in range(100000):
+    #Setup synthetic scene.
+    xx, PP_gt, X = setup_synthetic_scene()
+    T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
 
+    #Solve the problem.
+    out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {"solver": "LINEAR"})
+    err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
 
-T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
-
-out = lin_pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
-err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
-
-
-err_P = []
-for i in range(out['valid']):
-    P1 = out['P1'][i]
-    P2 = out['P2'][i]
-    P3 = out['P3'][i]
-    P4 = out['P4'][i]
-
-    err_P = camera_error_modulo_flips([P1,P2,P3,P4], PP_gt)
+    err_P = []
+    err_R = []
+    err_T = []
     
-    print(err_P)
+    #Measure the error.
+    for i in range(out['valid']):
+        P1 = out['P1'][i]
+        P2 = out['P2'][i]
+        P3 = out['P3'][i]
+        P4 = out['P4'][i]
 
+        err_P.append(camera_error_modulo_flips([P1,P2,P3,P4], PP_gt))
+        err_R.append(camera_rotation_error([P1,P2,P3,P4], PP_gt))
+        err_T.append(camera_translation_error([P1,P2,P3,P4], PP_gt))
 
-
-
-## Validate the synthetic instance
-#eps = np.array([[0, -1], [1, 0]])
-#for k in range(4):
-#    proj = (PP[k][0:2,0:3] @ X.T).T + PP[k][0:2,3]
-#
-#    for i in range(13):
-#        err = proj[i] @ eps @ xx[k][i].T
-#        infront = np.dot(proj[i], xx[k][i]) > 0
-#        print(err, infront)
+    #Print out the error.
+    if(len(err_P)>0):
+        print(str(min(err_P))+" "+str(min(err_R))+" "+str(min(err_T)))
+    else:
+        print("1 3.14 3.14")
 

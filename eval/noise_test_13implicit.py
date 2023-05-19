@@ -73,22 +73,12 @@ def camera_rotation_error(PP_est,PP_gt):
 
 
             Rdiff = Rgt.T @ R 
-            #print(R)
-            #print(Rgt)
             cs = (Rdiff.trace()-1)/2
             if(cs > 1):
                 cs = 1
             elif cs < -1:
                 cs = -1
-            #print(cs)
-            #print()
-            #print(Rdiff)
-            #print((Rdiff.trace()-1)/2)
             cur_err = np.max([cur_err, np.arccos(cs)])
-            #print((Rdiff.trace()-1)/2)
-            #print(cur_err)
-        #print(cur_err)
-
 
         err = np.min([err, cur_err])         
     return err
@@ -211,11 +201,11 @@ def setup_synthetic_scene():
     return (xx, PP, X)
 
 
-base_noise = 0.001
-num_iters = 10000
+base_noise = 0.001 #focal length 1000px => 1px ~ 0.001
+num_iters = 10000 #number of iterations
 for n in range(51):
     #print(n/5)
-    noise = n/5
+    noise = n/5 #Iterate from 0 to 10px
 
     ex_pose = 0
     avg_cam_err = 0
@@ -231,6 +221,7 @@ for n in range(51):
     AUC_T5 = 0
     AUC_T10 = 0
 
+    # Generate num_iters problems, solve them, and run.
     for x in range(num_iters):
         if(x%100==0):
             print(str(n)+" "+str(x), file=sys.stderr)
@@ -242,15 +233,17 @@ for n in range(51):
         xx3 = xx[3] + noise*base_noise*np.random.randn(13,2)
         xx = [xx0,xx1,xx2,xx3]
 
+        # Run the solver
         T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
 
-        out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
+        out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {"solver": "NANSON2"})
         err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
 
 
         err_P = []
         err_R = []
         err_T = []
+        # Measure the error
         for i in range(out['valid']):
             P1 = out['P1'][i]
             P2 = out['P2'][i]
@@ -281,27 +274,30 @@ for n in range(51):
             if(min(err_T) < 0.1):
                 AUC_T10 += 1
         else:
-            #print("NO RESULT")
             avg_cam_err += 10
             avg_rot_err += 3.141592654
             avg_tran_err += 3.141592654
             pass
 
-    #print("AUC10: "+str(AUC10))
+    #THE ORDER OF THE VALUES:
+    # noise in px
+    # percentage of problems, for which the solver returned a solution
+    # average camera error
+    # average rotation error (in degrees)
+    # average translation error (in world units)
+    # average camera error calculated over solutions, where the solver returned a solution
+    # average rotation error (in degrees) calculated over solutions, where the solver returned a solution
+    # average translation error (in world units) calculated over solutions, where the solver returned a solution
+    # percentage of problems with rotation error below 1 degree
+    # percentage of problems with rotation error below 5 degrees
+    # percentage of problems with rotation error below 10 degrees
+    # percentage of problems with translation error below 0.01 world units
+    # percentage of problems with translation error below 0.05 world units
+    # percentage of problems with translation error below 0.1 world units
+    
     if(ex_pose > 0):
         print(str(noise)+" "+str(ex_pose/num_iters)+" "+str(avg_cam_err/num_iters)+" "+str(180*avg_rot_err/(3.141592654*num_iters))+" "+str(avg_tran_err/num_iters)+" "+str(avg_succ_cam_err/ex_pose)+" "+str(180*avg_succ_rot_err/(3.141592654*ex_pose))+" "+str(avg_succ_tran_err/ex_pose)+" "+str(AUC5/num_iters)+" "+str(AUC10/num_iters)+" "+str(AUC20/num_iters)+" "+str(AUC_T1/num_iters)+" "+str(AUC_T5/num_iters)+" "+str(AUC_T10/num_iters))
     else:
         print(str(noise)+" "+str(ex_pose/num_iters)+" "+str(avg_cam_err/num_iters)+" "+str(180*avg_rot_err/(3.141592654*num_iters))+" "+str(avg_tran_err/num_iters)+" "+str(10)+" "+str(180)+" "+str(3.141592654)+" "+str(AUC5/num_iters)+" "+str(AUC10/num_iters)+" "+str(AUC20/num_iters)+" "+str(AUC_T1/num_iters)+" "+str(AUC_T5/num_iters)+" "+str(AUC_T10/num_iters))
 
-
-
-## Validate the synthetic instance
-#eps = np.array([[0, -1], [1, 0]])
-#for k in range(4):
-#    proj = (PP[k][0:2,0:3] @ X.T).T + PP[k][0:2,3]
-#
-#    for i in range(13):
-#        err = proj[i] @ eps @ xx[k][i].T
-#        infront = np.dot(proj[i], xx[k][i]) > 0
-#        print(err, infront)
 

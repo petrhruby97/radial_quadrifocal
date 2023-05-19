@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #include "quadrifocal_estimator.h"
 #include "radial_quadrifocal_solver.h"
 #include "linear_radial_quadrifocal_solver.h"
@@ -49,7 +50,7 @@ private:
 };
 
 
-
+//run the solver, perform metric upgrade, and return the camera poses
 void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) {
     std::uniform_int_distribution<int> rand_int(0, num_data);
     sample.clear();
@@ -77,6 +78,7 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
     std::vector<std::vector<Eigen::Vector3d>> Xs;
 
     if(opt.solver == MinimalSolver::MINIMAL) {
+        // 13 EXPLICIT
         // Solve for projective cameras with minimal solver
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         std::vector<Eigen::Matrix<double, 16, 1>> QFs;
@@ -90,6 +92,7 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
             total_valid += valid;
         }
     } else if(opt.solver == MinimalSolver::LINEAR) {
+        // 15 LINEAR
 	// Solve for projective cameras
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         std::vector<Eigen::Matrix<double, 16, 1>> QFs;
@@ -104,6 +107,7 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
 	    total_valid += valid;
         }
     } else if(opt.solver == MinimalSolver::UPRIGHT) {
+        // 7 EXPLICIT
         // Solve for projective cameras
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         std::vector<Eigen::Matrix<double, 16, 1>> QFs;
@@ -118,6 +122,7 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
 	    total_valid += valid;
 	}
     } else if(opt.solver == MinimalSolver::NANSON) {
+        // TODO remove this, it is a bug
         // Solve for projective cameras with minimal solver
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         std::vector<Eigen::Matrix<double, 16, 1>> QFs;
@@ -131,6 +136,7 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
             total_valid += valid;
         }
     } else if(opt.solver == MinimalSolver::NANSON2) {
+        // 13 IMPLICIT
         // Solve for projective cameras with minimal solver
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         std::vector<Eigen::Matrix<double, 16, 1>> QFs;
@@ -144,6 +150,7 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
             total_valid += valid;
         }
     } else if(opt.solver == MinimalSolver::UPRIGHT_NANSON) {
+        // 7 IMPLICIT
         // Solve for projective cameras with minimal solver
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         std::vector<Eigen::Matrix<double, 16, 1>> QFs;
@@ -179,9 +186,9 @@ void QuadrifocalEstimator::generate_models(std::vector<Reconstruction> *models) 
         triangulate(rec);
         models->push_back(rec);
     }
-    //std::cout << P1_calib.size() << " " << models->size() << "\n";
 }
 
+//Calculate reprojection error for the given model, and return back score for RANSAC
 double QuadrifocalEstimator::score_model(Reconstruction &rec, size_t *inlier_count) const {
     const double sqr_thr = opt.max_error * opt.max_error;
 
@@ -232,6 +239,7 @@ Eigen::Matrix3d complete_rotation(const Eigen::Matrix<double,2,3> &R_2x3) {
     return R;
 }
 
+//Perform Bundle Adjustment
 void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
     Eigen::Quaterniond q1(complete_rotation(rec->P1.block<2,3>(0,0)));
     Eigen::Quaterniond q2(complete_rotation(rec->P2.block<2,3>(0,0)));
@@ -245,7 +253,6 @@ void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
 
     
     ceres::Problem problem;
-    //ceres::LossFunction* loss_function = nullptr;;
     ceres::LossFunction* loss_function = new ceres::TrivialLoss();
     ceres::CostFunction* cost;
 
@@ -301,7 +308,7 @@ void QuadrifocalEstimator::refine_model(Reconstruction *rec) const {
     rec->P4.col(3) = t4;
 }
 
-
+//Triangulate the 3D points from the cameras
 void QuadrifocalEstimator::triangulate(Reconstruction &rec) {
     rec.X.resize(num_data);
     rec.inlier.resize(num_data);

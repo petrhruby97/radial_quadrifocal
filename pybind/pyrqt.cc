@@ -35,6 +35,7 @@ template <> void update(const py::dict &input, const std::string &name, bool &va
     }
 }
 
+//HC settings
 TrackSettings settings_from_dict(const py::dict &dict) {
     TrackSettings settings;
     update(dict, "init_dt_", settings.init_dt_);
@@ -54,6 +55,7 @@ TrackSettings settings_from_dict(const py::dict &dict) {
     return settings;
 }
 
+//RANSAC settings
 py::dict dict_from_ransac_stats(const RansacStats &stats) {
     py::dict result;
     result["refinements"] = stats.refinements;
@@ -65,26 +67,34 @@ py::dict dict_from_ransac_stats(const RansacStats &stats) {
     return result;
 }
 
+//Type of solver
 MinimalSolver solver_from_string(const std::string &solv) {
     std::string solv_str = solv;
     for (char &c : solv_str)
         c = std::toupper(c);
     if(solv_str == "MINIMAL") {
+    	//13 explicit
         return MinimalSolver::MINIMAL;
     } else if(solv_str == "LINEAR") {
+    	//15 linear
         return MinimalSolver::LINEAR;
     } else if(solv_str == "UPRIGHT") {
+    	//7 explicit
         return MinimalSolver::UPRIGHT;
     } else if(solv_str == "NANSON") {
+    	//bug
         return MinimalSolver::NANSON;
     } else if(solv_str == "NANSON2") {
+    	//13 implicit
         return MinimalSolver::NANSON2;
     } else if(solv_str == "UPRIGHT_NANSON") {
+    	//7 implicit
         return MinimalSolver::UPRIGHT_NANSON;
     }
     return MinimalSolver::MINIMAL; // default
 }
 
+//Load RANSAC settings
 RansacOptions ransac_options_from_dict(const py::dict &opt_dict) {
     RansacOptions ransac_options;
     update(opt_dict, "max_iterations", ransac_options.max_iterations);
@@ -153,11 +163,13 @@ static std::string vec_to_string(const std::vector<std::vector<T>>& vec){
 }
 */
 
+//RANSAC for estimating Radial Quadrifocal Tensor from input projections into the cameras
 py::dict ransac_quadrifocal_wrapper(const std::vector<Eigen::Vector2d> &x1,
                                            const std::vector<Eigen::Vector2d> &x2,
                                            const std::vector<Eigen::Vector2d> &x3,
                                            const std::vector<Eigen::Vector2d> &x4, const py::dict &opt) {
     
+    //load options and starting system
     RansacOptions ransac_opt = ransac_options_from_dict(opt);
     TrackSettings track_settings;
     StartSystem start_system;
@@ -177,6 +189,7 @@ py::dict ransac_quadrifocal_wrapper(const std::vector<Eigen::Vector2d> &x1,
         track_settings = settings_from_dict(opt);
     }
 
+    //solve to get the cameras and the 3D points
     QuadrifocalEstimator estimator(ransac_opt,x1,x2,x3,x4,start_system,track_settings);
     QuadrifocalEstimator::Reconstruction best_model;
 
@@ -186,6 +199,7 @@ py::dict ransac_quadrifocal_wrapper(const std::vector<Eigen::Vector2d> &x1,
 
     std::chrono::duration<double, std::milli> runtime_ms = end_time - start_time;
 
+    //return the cameras, the 3D points, and the settings
     py::dict result;
     result["P1"] = best_model.P1;
     result["P2"] = best_model.P2;
@@ -199,15 +213,18 @@ py::dict ransac_quadrifocal_wrapper(const std::vector<Eigen::Vector2d> &x1,
     return result;
 }
 
+//Run the solver once on a minimal sample
 py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x1,
                                                       const std::vector<Eigen::Vector2d> &x2,
                                                       const std::vector<Eigen::Vector2d> &x3,
                                                       const std::vector<Eigen::Vector2d> &x4, const py::dict &opt) {
+    //select the solver
     MinimalSolver solver = MinimalSolver::MINIMAL;
     if(opt.contains("solver")) {
         solver = solver_from_string(opt["solver"].cast<std::string>());
     }
 
+    //load HC settings and initial systems
     TrackSettings track_settings;
     StartSystem start_system;
 
@@ -226,6 +243,7 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
         track_settings = settings_from_dict(opt);
     }
 
+    //setup the structures for the cameras and the 3D points
     std::vector<Eigen::Matrix<double, 2, 4>> P1_calib, P2_calib, P3_calib, P4_calib;
     std::vector<Eigen::Matrix<double, 16, 1>> QFs;
     std::vector<std::vector<Eigen::Vector3d>> Xs;
@@ -233,25 +251,33 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
     auto start_time = std::chrono::high_resolution_clock::now();
     int total_valid = 0;
 
+    //Run the solver.
     if(solver == MinimalSolver::MINIMAL) {
+        //13 explicit
+        // Solve for projective cameras
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         int num_projective = radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
 
+        // Upgrade to metric
         for (int i = 0; i < num_projective; ++i) {
             int valid =
                 metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
             total_valid += valid;
         }
     } else if(solver == MinimalSolver::LINEAR) {
+        //15 linear
+        // Solve for projective cameras
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         int num_projective = linear_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
 
+        // Upgrade to metric
         for (int i = 0; i < num_projective; ++i) {
             int valid =
                 metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
             total_valid += valid;
         }
     } else if(solver == MinimalSolver::UPRIGHT) {
+        //7 explicit
 	// Solve for projective cameras
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         int num_projective = upright_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
@@ -263,43 +289,47 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
             total_valid += valid;
         }
     } else if(solver == MinimalSolver::NANSON) {
+        // bug
+        // Solve for projective cameras
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         int num_projective = nanson_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
 
+        // Upgrade to metric
         for (int i = 0; i < num_projective; ++i) {
             int valid =
                 metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
             total_valid += valid;
         }
     } else if(solver == MinimalSolver::NANSON2) {
-	//std::cout << "N2\n";
+        //13 implicit
+        // Solve for projective cameras
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         int num_projective = nanson2_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
-	//std::cout << num_projective << "\n";
 
+        // Upgrade to metric
         for (int i = 0; i < num_projective; ++i) {
             int valid =
                 metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
             total_valid += valid;
         }
-	//std::cout << total_valid << "\n";
     } else if(solver == MinimalSolver::UPRIGHT_NANSON) {
-	std::cout << "UN\n";
+        //7 implicit
+        // Solve for projective cameras
         std::vector<Eigen::Matrix<double, 2, 4>> P1, P2, P3, P4;
         int num_projective = upright_nanson_radial_quadrifocal_solver(x1, x2, x3, x4, start_system, track_settings, P1, P2, P3, P4, QFs);
-	std::cout << num_projective << "\n";
 
+        // Upgrade to metric
         for (int i = 0; i < num_projective; ++i) {
             int valid =
                 metric_upgrade(x1, x2, x3, x4, P1[i], P2[i], P3[i], P4[i], P1_calib, P2_calib, P3_calib, P4_calib, Xs);
             total_valid += valid;
         }
-	std::cout << total_valid << "\n";
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> runtime_ms = end_time - start_time;
 
+    // return the result
     py::dict result;
     result["P1"] = P1_calib;
     result["P2"] = P2_calib;
@@ -314,6 +344,7 @@ py::dict calibrated_radial_quadrifocal_solver_wrapper(const std::vector<Eigen::V
 }
 
 
+//Run only the solver without metric upgrade.
 py::dict radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x1,
                                     const std::vector<Eigen::Vector2d> &x2,
                                     const std::vector<Eigen::Vector2d> &x3,
@@ -358,7 +389,7 @@ py::dict radial_quadrifocal_solver_wrapper(const std::vector<Eigen::Vector2d> &x
     return result;
 }
 
-
+//Run triangulation of the projections x1,...,x4 by the cameras P1, P2, P3, P4.
 py::dict triangulate_wrapper(const std::vector<Eigen::Vector2d> &x1,
                              const std::vector<Eigen::Vector2d> &x2,
                              const std::vector<Eigen::Vector2d> &x3,
@@ -368,8 +399,6 @@ py::dict triangulate_wrapper(const std::vector<Eigen::Vector2d> &x1,
 			     const Eigen::Matrix<double, 2, 4> &P3,
 			     const Eigen::Matrix<double, 2, 4> &P4)
 {
-	//std::cout << "triangulate\n";
-	//std::cout << P1 << "\n\n";
 	rqt::RansacOptions ransac_opt;
 	rqt::StartSystem ss;
 	rqt::TrackSettings ts;
@@ -381,12 +410,12 @@ py::dict triangulate_wrapper(const std::vector<Eigen::Vector2d> &x1,
 	rec.P3 = P3;
 	rec.P4 = P4;
 	qfe.triangulate(rec);
-	//std::cout << rec.X.size() << "\n";
     	py::dict result;
 	result["Xs"] = rec.X;
 	return result;
 }
 
+//Run metric upgrade.
 py::dict metric_upgrade_wrapper(const std::vector<Eigen::Vector2d> &x1, const std::vector<Eigen::Vector2d> &x2,
                                 const std::vector<Eigen::Vector2d> &x3, const std::vector<Eigen::Vector2d> &x4,
                                 const Eigen::Matrix<double, 2, 4> &P1, const Eigen::Matrix<double, 2, 4> &P2,
@@ -475,24 +504,39 @@ PYBIND11_MODULE(pyrqt, m) {
         });
     */
 
+    // Solve for the radial quadrifocal tensor without metric upgrade
+    //Input: projections x1, x2, x3, x4 of the 3D points into 4 radial cameras + options (solver + settings)
+    //Output: radial quadrifocal tensor + uncalibrated cameras
     m.def("radial_quadrifocal_solver", &radial_quadrifocal_solver_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
           py::arg("x4"), py::arg("options"), "Minimal solver for radial quadrifocal tensor",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
+    // Solve for the radial quadrifocal tensor with metric upgrade
+    //Input: projections x1, x2, x3, x4 of the 3D points into 4 radial cameras + options (solver + RANSAC settings)
+    //Output: radial quadrifocal tensor + calibrated cameras
     m.def("calibrated_radial_quadrifocal_solver", &calibrated_radial_quadrifocal_solver_wrapper, py::arg("x1"),
           py::arg("x2"), py::arg("x3"), py::arg("x4"), py::arg("options"),
           "Minimal solver for radial quadrifocal tensor",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
+    // Perform metric upgrade + cheirality filter
+    //Input: projections x1, x2, x3, x4 of the 3D points, and uncalibrated radial cameras P1, P2, P3, P4
+    //Output: calibrated cameras with the same radial quadrifocal tensor as the input cameras, such that the input points are triangulated in front of all cameras
     m.def("metric_upgrade", &metric_upgrade_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"), py::arg("x4"),
           py::arg("P1"), py::arg("P2"), py::arg("P3"), py::arg("P4"), "Upgrades a projective reconstruction to metric.",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
-   m.def("ransac_quadrifocal", &ransac_quadrifocal_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
+    // Run RANSAC to fit a radial quadrifocal tensor into projections contaminated by noise and mismatches
+    //Input: projections x1, x2, x3, x4 of the 3D points into 4 radial cameras + options (solver + settings)
+    //Output: radial quadrifocal tensor + calibrated cameras
+    m.def("ransac_quadrifocal", &ransac_quadrifocal_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
           py::arg("x4"), py::arg("options"), "RANSAC estimator for radial quadrifocal tensor",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 
-   m.def("triangulate", &triangulate_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
+    // Triangulate the 3D points
+    //Input: projections x1, x2, x3, x4, and calibrated cameras
+    //Output: triangulated 3D points
+    m.def("triangulate", &triangulate_wrapper, py::arg("x1"), py::arg("x2"), py::arg("x3"),
           py::arg("x4"), py::arg("P1"), py::arg("P2"), py::arg("P3"), py::arg("P4"), "Triangulates the lines",
           py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>());
 

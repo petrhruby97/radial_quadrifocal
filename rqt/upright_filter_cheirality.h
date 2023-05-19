@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #ifndef RQT_FILTER_CHEIRALITY_U_
 #define RQT_FILTER_CHEIRALITY_U_
 

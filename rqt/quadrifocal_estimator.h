@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #ifndef RQT_QUADRIFOCAL_ESTIMATOR_H_
 #define RQT_QUADRIFOCAL_ESTIMATOR_H_
 

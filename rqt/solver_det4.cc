@@ -1,3 +1,4 @@
+// \author Viktor Larsson
 #include "solver_det4.h"
 
 namespace rqt {

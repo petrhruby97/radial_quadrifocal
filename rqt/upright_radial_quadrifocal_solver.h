@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #ifndef RQT_SOLVER_U_
 #define RQT_SOLVER_U_
 

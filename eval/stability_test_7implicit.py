@@ -1,6 +1,5 @@
 import numpy as np
 import pyrqt
-import lin_pyrqt
 
 def make_tensor(P1,P2,P3,P4):
     T = np.zeros(16)
@@ -31,7 +30,7 @@ def random_rot():
 def lookat(point, center):
     r3 = point - center
     r3 = r3 / np.linalg.norm(r3)
-    u = np.array([0,1,0]) + 0.01*np.random.randn(3)    
+    u = np.array([0,1,0])# + 0.01*np.random.randn(3)    
     r1 = np.cross(u, r3)
     r1 = r1 / np.linalg.norm(r1)
     r2 = np.cross(r3, r1)
@@ -51,9 +50,73 @@ def camera_error_modulo_flips(PP_est,PP_gt):
         err = np.min([err, e1+e2+e3+e4])         
     return err
     
+def camera_rotation_error(PP_est,PP_gt):
+    err = 10000
+    for z in [-1,1]:
+        H = np.diag([1,1,z,1])
+
+        cur_err = 0
+        for i in range(1,4):
+            PPi = PP_est[i] @ H
+            r1 = PPi[0,0:3]
+            r2 = PPi[1,0:3]
+            R = np.stack([r1, r2, np.cross(r1, r2)])
+            if np.linalg.det(R) < 0:
+                R = np.stack([r1, r2, -np.cross(r1, r2)])
+
+            r1gt = PP_gt[i][0,0:3]
+            r2gt = PP_gt[i][1,0:3]
+            Rgt = np.stack([r1gt, r2gt, np.cross(r1gt, r2gt)])
+            if np.linalg.det(Rgt) < 0:
+                Rgt = np.stack([r1gt, r2gt, -np.cross(r1gt, r2gt)])
+
+
+            Rdiff = Rgt.T @ R
+            cs = (Rdiff.trace()-1)/2
+            if(cs > 1):
+                cs = 1
+            elif cs < -1:
+                cs = -1
+            cur_err = np.max([cur_err, np.arccos(cs)])
+
+        err = np.min([err, cur_err])
+    return err
+
+def translation_dist(P1, P2):
+        u1, s1, v1 = np.linalg.svd(P1)
+        a1 = v1[3,0:3]/v1[3,3]
+        #a1_ = v1[3,0:3]/v1[3,3]
+        b1 = v1[2,0:3]
+        b1 = b1/np.linalg.norm(b1)
+
+        u2, s2, v2 = np.linalg.svd(P2)
+        a2 = v2[3,0:3]/v2[3,3]
+        b2 = v2[2,0:3]
+        b2 = b2/np.linalg.norm(b2)
+
+        cr = np.cross(b1,b2)
+        cr = cr/np.linalg.norm(cr)
+
+        return np.dot(cr,(a2-a1))
+
+
+def camera_translation_error(PP_est,PP_gt):
+    err = 10000
+    for z in [-1,1]:
+        H = np.diag([1,1,z,1])
+
+        d2 = translation_dist(PP_est[1], PP_gt[1])
+        d3 = translation_dist(PP_est[2], PP_gt[2])
+        d4 = translation_dist(PP_est[3], PP_gt[3])
+        c_err = np.max(np.abs([d2,d3,d4]))
+
+        err = np.min([err, c_err])
+    return err
+
+
 
 def setup_synthetic_scene():
-    X = np.random.rand(13,3)
+    X = np.random.rand(7,3)
     X = 2*(X - 0.5)
 
     c1 = np.random.randn(3)
@@ -66,10 +129,21 @@ def setup_synthetic_scene():
     #c3 = 2.0 * c3 / np.linalg.norm(c3)
     #c4 = 2.0 * c4 / np.linalg.norm(c4)
 
-    R1 = lookat(2.0 * (np.random.rand(3) - 0.5), c1)
-    R2 = lookat(2.0 * (np.random.rand(3) - 0.5), c2)
-    R3 = lookat(2.0 * (np.random.rand(3) - 0.5), c3)
-    R4 = lookat(2.0 * (np.random.rand(3) - 0.5), c4)
+    l1 = 2.0*(np.random.rand(3)-0.5)
+    l1[1] = c1[1]
+    R1 = lookat(l1, c1)
+
+    l2 = 2.0*(np.random.rand(3)-0.5)
+    l2[1] = c2[1]
+    R2 = lookat(l2, c2)
+
+    l3 = 2.0*(np.random.rand(3)-0.5)
+    l3[1] = c3[1]
+    R3 = lookat(l3, c3)
+
+    l4 = 2.0*(np.random.rand(3)-0.5)
+    l4[1] = c4[1]
+    R4 = lookat(l4, c4)
 
     t1 = -R1 @ c1
     t2 = -R2 @ c2
@@ -107,7 +181,7 @@ def setup_synthetic_scene():
     X = X @ Hinv[0:3,0:3].T + Hinv[0:3,3]
 
     # fix second camera translation
-    alpha = -P2[1,3] / P2[1,2]
+    alpha = -P2[0,3] / P2[0,2]
     H = np.c_[np.eye(3), np.array([0,0,alpha])]
     H = np.r_[H, np.array([[0,0,0,1]])]
     P1 = P1 @ H
@@ -119,7 +193,7 @@ def setup_synthetic_scene():
 
     
     # Fix scale
-    sc = P2[0,3]
+    sc = np.sqrt(P2[0,3]*P2[0,3] + P2[1,3]*P2[1,3]) + np.sqrt(P3[0,3]*P3[0,3] + P3[1,3]*P3[1,3]) + np.sqrt(P4[0,3]*P4[0,3] + P4[1,3]*P4[1,3]) 
     if sc < 0:
         P2 = -P2
         sc = -sc
@@ -137,26 +211,29 @@ def setup_synthetic_scene():
     return (xx, PP, X)
 
 
-for n in range(31):
-    print(n/10)
+xx, PP_gt, X = setup_synthetic_scene()
+#exit()
 
-for x in range(100):
-    nn = 0.001;
+#T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
+#out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {"solver": "UPRIGHT_NANSON"})
+#err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
+
+#Generate 100000 noiseless samples
+for x in range(100000):
+    #Setup synthetic scene.
     xx, PP_gt, X = setup_synthetic_scene()
-    xx_orig = xx
-    xx0 = xx[0]# + nn*0.001*np.random.randn(13,2)
-    xx1 = xx[1]# + nn*0.001*np.random.randn(13,2)
-    xx2 = xx[2]# + nn*0.001*np.random.randn(13,2)
-    xx3 = xx[3]# + nn*0.001*np.random.randn(13,2)
-    xx = [xx0,xx1,xx2,xx3]
-
     T_gt = make_tensor(PP_gt[0], PP_gt[1], PP_gt[2], PP_gt[3])
 
-    #OUR SOLVER
-    out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
+    #Solve the problem.
+    out = pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {"solver": "UPRIGHT_NANSON"})
     err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in out['QFs']]
 
+
     err_P = []
+    err_R = []
+    err_T = []
+
+    #Measure the error.
     for i in range(out['valid']):
         P1 = out['P1'][i]
         P2 = out['P2'][i]
@@ -164,41 +241,12 @@ for x in range(100):
         P4 = out['P4'][i]
 
         err_P.append(camera_error_modulo_flips([P1,P2,P3,P4], PP_gt))
-    if len(err_P) > 0:
-        print("OUR: " + str(min(err_P)))
+        err_R.append(camera_rotation_error([P1,P2,P3,P4], PP_gt))
+        err_T.append(camera_translation_error([P1,P2,P3,P4], PP_gt))
+
+    #Print out the error.
+    if(len(err_P)>0):
+        print(str(min(err_P))+" "+str(min(err_R))+" "+str(min(err_T)))
     else:
-        print("OUR: NO RESULT")
-
-    #LINEAR SOLVER
-    lin_out_ = lin_pyrqt.radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
-    print(lin_out_)
-
-    lin_out = lin_pyrqt.calibrated_radial_quadrifocal_solver(xx[0], xx[1], xx[2], xx[3], {})
-    err_T = [np.min([np.linalg.norm(T - T_gt), np.linalg.norm(T + T_gt)]) for T in lin_out['QFs']]
-
-    err_P = []
-    for i in range(lin_out['valid']):
-        P1 = lin_out['P1'][i]
-        P2 = lin_out['P2'][i]
-        P3 = lin_out['P3'][i]
-        P4 = lin_out['P4'][i]
-
-        err_P.append(camera_error_modulo_flips([P1,P2,P3,P4], PP_gt))
-    if len(err_P) > 0:
-        print("LIN: " + str(min(err_P)))
-    else:
-        print("LIN: NO RESULT")
-    print()
-
-
-
-## Validate the synthetic instance
-#eps = np.array([[0, -1], [1, 0]])
-#for k in range(4):
-#    proj = (PP[k][0:2,0:3] @ X.T).T + PP[k][0:2,3]
-#
-#    for i in range(13):
-#        err = proj[i] @ eps @ xx[k][i].T
-#        infront = np.dot(proj[i], xx[k][i]) > 0
-#        print(err, infront)
+        print("1 3.14 3.14")
 

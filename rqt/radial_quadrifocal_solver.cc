@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #include "radial_quadrifocal_solver.h"
 
 #include "homotopy.h"

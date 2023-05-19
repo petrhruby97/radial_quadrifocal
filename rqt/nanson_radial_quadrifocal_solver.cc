@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #include "nanson_radial_quadrifocal_solver.h"
 #include "nanson_homotopy.h"
 

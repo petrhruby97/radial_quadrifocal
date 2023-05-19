@@ -81,9 +81,6 @@ def translation_dist(P1, P2):
             a2 = a2_
             b2 = v2[2,0:3]
 
-        #print(a2)
-        #print(b2)
-
         cr = np.cross(b1,b2)
         cr = cr/np.linalg.norm(cr)
 
@@ -103,31 +100,28 @@ def camera_translation_error(PP_est,PP_gt):
     return err
 
 
-
-#dataset = 'grossmunster'
+#Select the dataset
+# The dataset has to be located in a folder ./data/$DATASET/, where $DATASET is the value of variable dataset.
+# The dataset should be in the COLMAP format.
+dataset = 'grossmunster'
 #dataset = 'kirchenge'
 #dataset = 'pipes'
-#dataset = 'courtyard' #those first datasets are too easy
+#dataset = 'courtyard'
 #dataset = 'delivery'
-#dataset = 'electro' # ale jo, celkem to jde; upright se chyta nejlip
-#dataset = 'facade' # we may be slightly better
-#dataset = 'kicker' #necessary to reduce the size
-#dataset = 'meadow' #da se najit presne jeden kvarduplet -> preskocit tenhle dataset
-#dataset = 'office' #malo dat, musi se zredukovat minimalni pocet matchu, ten linearni zmrd se celkem chyta
-#dataset = 'pipes' #tohle je nas milasek (linear se vubec nechyta), potrebuje maly pocet matchu
-dataset = 'playground' #ve zredukovane velikosti se nejlip chytaj asi nansoni; v plne velikosti je ten nanson on par s tim linearninm zmrdem: TODO REDUKOVAT DATA: pak to bude zajimavy; ten threshold si muzeme nastavit priznive pro nas, aby se to lip prodavalo :)
+#dataset = 'electro'
+#dataset = 'facade'
+#dataset = 'kicker'
+#dataset = 'meadow' # no feasible quadruplets exist
+#dataset = 'office'
+#dataset = 'pipes'
+#dataset = 'playground'
 #dataset = 'relief'
 #dataset = 'relief2'
 #dataset = 'terrace'
-#dataset = 'terrains' # s limitaci na 20 je to dalsi milasek, s limitaci na 50 celkem jde, s limitaci na 200 je to tuhy boj
-num_tuples = 20
-min_shared_pts = 180
+#dataset = 'terrains'
 
-#TODO:
-#1. read dataset, num_tuples, and min_shared_pts from file
-#2. create the commands
-#3. silence everything except for the main result
-#4. run everything and print out results into file => so that it is readable from that tmux
+num_tuples = 20 #Number of quadruplets generated from the dataset
+min_shared_pts = 180 #Minimal number of matches
 
 argc = len(sys.argv)
 if(argc >= 3):
@@ -135,8 +129,8 @@ if(argc >= 3):
 	num_tuples = int(sys.argv[2])
 	min_shared_pts = int(sys.argv[3])
 print(dataset+" "+str(num_tuples)+" "+str(min_shared_pts)) 
-#exit()
 
+# load the data
 matches, poses, camera_dict = utils.sfm_reader.load_tuples(f'../data/{dataset}', num_tuples,
                                                               min_shared_pts=min_shared_pts,
                                                               verified_matches=False, uniform_images=False,
@@ -144,14 +138,13 @@ matches, poses, camera_dict = utils.sfm_reader.load_tuples(f'../data/{dataset}',
 
 num_tuples = len(matches)
 print(num_tuples)
-#exit()
 
 pp = camera_dict['params'][[2,3]]
 if dataset!='grossmunster' and dataset!='kirchenge':
     pp = camera_dict['params'][[1,2]]
-#print(pp)
 
 #STATISTICS
+#13 implicit
 num_found_poses_13 = 0
 avg_rep_err_13 = 0
 avg_rot_err_13 = 0
@@ -167,21 +160,7 @@ AUC_T1_13 = 0
 AUC_T5_13 = 0
 AUC_T10_13 = 0
 
-num_found_poses_N = 0
-avg_rep_err_N = 0
-avg_rot_err_N = 0
-avg_tran_err_N = 0
-avg_succ_rep_err_N = 0
-avg_succ_rot_err_N = 0
-avg_succ_tran_err_N = 0
-avg_succ_cam_err_N = 0
-AUC5_N = 0
-AUC10_N = 0
-AUC20_N = 0
-AUC_T1_N = 0
-AUC_T5_N = 0
-AUC_T10_N = 0
-
+#13 explicit
 num_found_poses_N2 = 0
 avg_rep_err_N2 = 0
 avg_rot_err_N2 = 0
@@ -197,6 +176,7 @@ AUC_T1_N2 = 0
 AUC_T5_N2 = 0
 AUC_T10_N2 = 0
 
+#15 linear
 num_found_poses_15 = 0
 avg_rep_err_15 = 0
 avg_rot_err_15 = 0
@@ -212,6 +192,7 @@ AUC_T1_15 = 0
 AUC_T5_15 = 0
 AUC_T10_15 = 0
 
+#7 explicit
 num_found_poses_7 = 0
 avg_rep_err_7 = 0
 avg_rot_err_7 = 0
@@ -227,6 +208,7 @@ AUC_T1_7 = 0
 AUC_T5_7 = 0
 AUC_T10_7 = 0
 
+#7 implicit
 num_found_poses_7N = 0
 avg_rep_err_7N = 0
 avg_rot_err_7N = 0
@@ -242,13 +224,16 @@ AUC_T1_7N = 0
 AUC_T5_7N = 0
 AUC_T10_7N = 0
 
+#Run RANSAC with all the solvers over all generated quadruplets
 pose_id = 0
 for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
+
     print(pose_id)
     pose_id += 1
 
     n = len(x1)    
 
+    #Get camera center
     x1c = x1 - pp
     x2c = x2 - pp
     x3c = x3 - pp
@@ -262,18 +247,17 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
     PPgt = [P1r, P2r, P3r, P4r]
     dct = pyrqt.triangulate(x1c, x2c, x3c, x4c, P1r, P2r, P3r, P4r)
     
-    
+    #13 implicit
     opt = {
         'min_iterations': 10,
         'max_iterations': 100,
         'max_reproj': 2.0,
         'solver': 'MINIMAL'
     }
-
     out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,opt)
 
     if out['ransac']['num_inliers'] == 0:
-        print(f'OUR: Found no reconstruction')
+        print(f'13 EXPLICIT: Found no reconstruction')
         print()
         avg_rep_err_13 += 50
         avg_rot_err_13 += 3.14
@@ -311,77 +295,19 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
         if(tran_err < 5.0):
             AUC_T10_13 += 1
 
+        print("13 EXPLICIT")
         print("Cam err: "+str(cam_err))
-
         repr = compute_reprojection_error(xx,PP,out['X'])
         repr_GT = compute_reprojection_error(xx,PPgt,dct['Xs'])
         repr_GT_avg = np.mean(repr_GT[out['inliers'],:])
         print("GT repr. err.: "+str(repr_GT_avg))
-        print(f'OUR: Found reconstruction with {out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
+        print(f'13 EXPLICIT: Found reconstruction with {out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
         print(f'{out["ransac"]["iterations"]} iterations, {out["ransac"]["refinements"]} refinements.')
         print(camera_rotation_error(Ps, Psgt))
         print("Translation "+str(camera_translation_error(Ps, Psgt)))
         print()
         
-    n_opt = {
-        'min_iterations': 10,
-        'max_iterations': 100,
-        'max_reproj': 2.0,
-        'solver': 'NANSON'
-    }
-
-    n_out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,n_opt)
-
-    if n_out['ransac']['num_inliers'] == 0:
-        print(f'NANSON: Found no reconstruction')
-        print()
-        avg_rep_err_N += 50
-        avg_rot_err_N += 3.14
-        avg_tran_err_N += 3.14
-
-    else:
-        xx = [x1c,x2c,x3c,x4c]
-        PP = [n_out['P1'],n_out['P2'],n_out['P3'],n_out['P4']]
-        Ps = [n_out['P1'], n_out['P2'], n_out['P3'], n_out['P4']]
-        Psgt = [P1, P2, P3, P4]
-
-        num_found_poses_N += 1
-        rep_err = compute_reprojection_error(xx,PP,n_out['X'])
-        repr_err = np.mean(rep_err[n_out['inliers'],:])
-        rot_err = 180*camera_rotation_error(Ps, Psgt)/3.141592654
-        tran_err = camera_translation_error(Ps, Psgt)
-        avg_rep_err_N += repr_err
-        avg_rot_err_N += rot_err
-        avg_tran_err_N += tran_err
-        avg_succ_rep_err_N += repr_err
-        avg_succ_rot_err_N += rot_err
-        avg_succ_tran_err_N += tran_err
-        cam_err = camera_error_modulo_flips(Ps, Psgt)
-        avg_succ_cam_err_N += cam_err
-        if(rot_err < 5):
-            AUC5_N += 1
-        if(rot_err < 10):
-            AUC10_N += 1
-        if(rot_err < 20):
-            AUC20_N += 1
-        if(tran_err < 0.5):
-            AUC_T1_N += 1
-        if(tran_err < 1.0):
-            AUC_T5_N += 1
-        if(tran_err < 5.0):
-            AUC_T10_N += 1
-
-        print("Cam err: "+str(cam_err))
-
-        repr = compute_reprojection_error(xx,PP,n_out['X'])
-        repr_GT = compute_reprojection_error(xx,PPgt,dct['Xs'])
-        repr_GT_avg = np.mean(repr_GT[n_out['inliers'],:])
-        print("GT repr. err.: "+str(repr_GT_avg))
-        print(f'NANSON: Found reconstruction with {n_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
-        print(f'{n_out["ransac"]["iterations"]} iterations, {n_out["ransac"]["refinements"]} refinements.')
-        print(camera_rotation_error(Ps, Psgt))
-        print("Translation "+str(camera_translation_error(Ps, Psgt)))
-
+    #13 explicit
     n2_opt = {
         'min_iterations': 10,
         'max_iterations': 100,
@@ -392,7 +318,7 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
     n2_out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,n2_opt)
 
     if n2_out['ransac']['num_inliers'] == 0:
-        print(f'NANSON2: Found no reconstruction')
+        print(f'13 IMPLICIT: Found no reconstruction')
         print()
         avg_rep_err_N2 += 50
         avg_rot_err_N2 += 3.14
@@ -430,17 +356,19 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
         if(tran_err < 5.0):
             AUC_T10_N2 += 1
 
+        print("13 IMPLICIT")
         print("Cam err: "+str(cam_err))
-
         repr = compute_reprojection_error(xx,PP,n2_out['X'])
         repr_GT = compute_reprojection_error(xx,PPgt,dct['Xs'])
         repr_GT_avg = np.mean(repr_GT[n2_out['inliers'],:])
         print("GT repr. err.: "+str(repr_GT_avg))
-        print(f'NANSON2: Found reconstruction with {n2_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
+        print(f'13 IMPLICIT: Found reconstruction with {n2_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
         print(f'{n2_out["ransac"]["iterations"]} iterations, {n2_out["ransac"]["refinements"]} refinements.')
         print(camera_rotation_error(Ps, Psgt))
         print("Translation "+str(camera_translation_error(Ps, Psgt)))
+        print()
 
+    #15 linear
     l_opt = {
         'min_iterations': 10,
         'max_iterations': 100,
@@ -451,7 +379,7 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
     l_out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,l_opt)
 
     if l_out['ransac']['num_inliers'] == 0:
-        print(f'LINEAR: Found no reconstruction')
+        print(f'15 LINEAR: Found no reconstruction')
         print()
         avg_rep_err_15 += 50
         avg_rot_err_15 += 3.14
@@ -490,11 +418,13 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
             AUC_T10_15 += 1
 
         repr = compute_reprojection_error(xx,PP,l_out['X'])
-        print(f'LINEAR: Found reconstruction with {l_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
+        print("15 LINEAR")
+        print(f'15 LINEAR: Found reconstruction with {l_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
         print(f'{l_out["ransac"]["iterations"]} iterations, {l_out["ransac"]["refinements"]} refinements.')
         print(camera_rotation_error(PP, Psgt))
         print()
 
+    #7 upright explicit
     u_opt = {
         'min_iterations': 10,
         'max_iterations': 100,
@@ -505,7 +435,7 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
     u_out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,u_opt)
 
     if u_out['ransac']['num_inliers'] == 0:
-        print(f'UPRIGHT: Found no reconstruction')
+        print(f'7 UPRIGHT EXPLICIT: Found no reconstruction')
         avg_rep_err_7 += 50
         avg_rot_err_7 += 3.14
         avg_tran_err_7 += 3.14
@@ -546,13 +476,13 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
             AUC_T10_7 += 1
 
         repr = compute_reprojection_error(xx,PP,u_out['X'])
-        print(f'UPRIGHT: Found reconstruction with {u_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
+        print("7 UPRIGHT EXPLICIT")
+        print(f'7 UPRIGHT EXPLICIT: Found reconstruction with {u_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
         print(f'{u_out["ransac"]["iterations"]} iterations, {u_out["ransac"]["refinements"]} refinements.')
         print(camera_rotation_error(PP, Psgt))
         print()
-        print()
-        print()
 
+    #7 upright implicit
     un_opt = {
         'min_iterations': 10,
         'max_iterations': 100,
@@ -563,7 +493,7 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
     un_out = pyrqt.ransac_quadrifocal(x1c,x2c,x3c,x4c,un_opt)
 
     if un_out['ransac']['num_inliers'] == 0:
-        print(f'UPRIGHT_NANSON: Found no reconstruction')
+        print(f'7 UPRIGHT IMPLICIT: Found no reconstruction')
         avg_rep_err_7N += 50
         avg_rot_err_7N += 3.14
         avg_tran_err_7N += 3.14
@@ -604,17 +534,25 @@ for ((x1,x2,x3,x4), (P1,P2,P3,P4)) in zip(matches,poses):
             AUC_T10_7N += 1
 
         repr = compute_reprojection_error(xx,PP,un_out['X'])
-        print(f'UPRIGHT NANSON: Found reconstruction with {un_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
+        print("7 UPRIGHT IMPLICIT")
+        print(f'7 UPRIGHT IMPLICIT: Found reconstruction with {un_out["ransac"]["num_inliers"]}/{len(x1)} inliers with {repr_err}px mean reprojection error.')
         print(f'{un_out["ransac"]["iterations"]} iterations, {un_out["ransac"]["refinements"]} refinements.')
         print(camera_rotation_error(PP, Psgt))
         print()
         print()
         print()
 
-print("13 solver")
+#Print out statistics in the following order:
+    # Name of the solver
+    # Percentage of quadruplets, for which the solver generated some pose
+    # Average camera error
+    # Average translation error
+    # Percentage of poses, whose rotation error is below 5, 10, 20 degrees
+    # Percentage of poses, whose translation error is below 0.5, 1, 5 meters
+print("13 solver explicit")
 if(num_found_poses_13 > 0):
     print(str(num_found_poses_13/num_tuples))
-    print("Old errors: "+str(num_found_poses_13/num_tuples)+" "+str(avg_succ_rep_err_13/num_found_poses_13)+" "+str(avg_succ_rot_err_13/num_found_poses_13)+" "+str(avg_succ_tran_err_13/num_found_poses_13))
+    #print("Old errors: "+str(num_found_poses_13/num_tuples)+" "+str(avg_succ_rep_err_13/num_found_poses_13)+" "+str(avg_succ_rot_err_13/num_found_poses_13)+" "+str(avg_succ_tran_err_13/num_found_poses_13))
     print("Cam error: "+str(avg_succ_cam_err_13/num_found_poses_13))
     print("Tran error: "+str(avg_succ_tran_err_13/num_found_poses_13))
     print("AUC: "+str(AUC5_13/num_tuples)+" "+str(AUC10_13/num_tuples)+" "+str(AUC20_13/num_tuples)+" | "+str(AUC_T1_13/num_tuples)+" "+str(AUC_T5_13/num_tuples)+" "+str(AUC_T10_13/num_tuples)+" ")
@@ -622,21 +560,10 @@ if(num_found_poses_13 > 0):
 else:
     print(str(num_found_poses_13/num_tuples)+" "+str(50)+" "+str(180)+" "+str(100)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0))
 
-print("13 solver NANSON")
-if(num_found_poses_N > 0):
-    print(str(num_found_poses_N/num_tuples))
-    print("Old errors: "+str(num_found_poses_N/num_tuples)+" "+str(avg_succ_rep_err_N/num_found_poses_N)+" "+str(avg_succ_rot_err_N/num_found_poses_N)+" "+str(avg_succ_tran_err_N/num_found_poses_N))
-    print("Cam error: "+str(avg_succ_cam_err_N/num_found_poses_N))
-    print("Tran error: "+str(avg_succ_tran_err_N/num_found_poses_N))
-    print("AUC: "+str(AUC5_N/num_tuples)+" "+str(AUC10_N/num_tuples)+" "+str(AUC20_N/num_tuples)+" | "+str(AUC_T1_N/num_tuples)+" "+str(AUC_T5_N/num_tuples)+" "+str(AUC_T10_N/num_tuples)+" ")
-    print()
-else:
-    print(str(num_found_poses_N/num_tuples)+" "+str(50)+" "+str(180)+" "+str(100)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0))
-
-print("13 solver NANSON2")
+print("13 solver implicit")
 if(num_found_poses_N2 > 0):
     print(str(num_found_poses_N2/num_tuples))
-    print("Old errors: "+str(num_found_poses_N2/num_tuples)+" "+str(avg_succ_rep_err_N2/num_found_poses_N2)+" "+str(avg_succ_rot_err_N2/num_found_poses_N2)+" "+str(avg_succ_tran_err_N2/num_found_poses_N2))
+    #print("Old errors: "+str(num_found_poses_N2/num_tuples)+" "+str(avg_succ_rep_err_N2/num_found_poses_N2)+" "+str(avg_succ_rot_err_N2/num_found_poses_N2)+" "+str(avg_succ_tran_err_N2/num_found_poses_N2))
     print("Cam error: "+str(avg_succ_cam_err_N2/num_found_poses_N2))
     print("Tran error: "+str(avg_succ_tran_err_N2/num_found_poses_N2))
     print("AUC: "+str(AUC5_N2/num_tuples)+" "+str(AUC10_N2/num_tuples)+" "+str(AUC20_N2/num_tuples)+" | "+str(AUC_T1_N2/num_tuples)+" "+str(AUC_T5_N2/num_tuples)+" "+str(AUC_T10_N2/num_tuples)+" ")
@@ -644,36 +571,34 @@ if(num_found_poses_N2 > 0):
 else:
     print(str(num_found_poses_N2/num_tuples)+" "+str(50)+" "+str(180)+" "+str(100)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0))
 
-print("15 solver")
+print("15 solver linear")
 if(num_found_poses_15 > 0):
     print(str(num_found_poses_15/num_tuples))
-    print("Old errors: "+str(num_found_poses_15/num_tuples)+" "+str(avg_succ_rep_err_15/num_found_poses_15)+" "+str(avg_succ_rot_err_15/num_found_poses_15)+" "+str(avg_succ_tran_err_15/num_found_poses_15))
+    #print("Old errors: "+str(num_found_poses_15/num_tuples)+" "+str(avg_succ_rep_err_15/num_found_poses_15)+" "+str(avg_succ_rot_err_15/num_found_poses_15)+" "+str(avg_succ_tran_err_15/num_found_poses_15))
     print("Cam error: "+str(avg_succ_cam_err_15/num_found_poses_15))
     print("Tran error: "+str(avg_succ_tran_err_15/num_found_poses_15))
     print("AUC: "+str(AUC5_15/num_tuples)+" "+str(AUC10_15/num_tuples)+" "+str(AUC20_15/num_tuples)+" | "+str(AUC_T1_15/num_tuples)+" "+str(AUC_T5_15/num_tuples)+" "+str(AUC_T10_15/num_tuples)+" ")
-    #print(str(num_found_poses_15/num_tuples)+" "+str(avg_succ_rep_err_15/num_found_poses_15)+" "+str(avg_succ_rot_err_15/num_found_poses_15)+" "+str(avg_succ_tran_err_15/num_found_poses_15)+" "+str(AUC5_15/num_tuples)+" "+str(AUC10_15/num_tuples)+" "+str(AUC20_15/num_tuples)+" "+str(AUC_T1_15/num_tuples)+" "+str(AUC_T5_15/num_tuples)+" "+str(AUC_T10_15/num_tuples))
     print()
 else:
     print(str(num_found_poses_15/num_tuples)+" "+str(50)+" "+str(180)+" "+str(100)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0))
 
-print("7 solver")
+print("7 solver upright explicit")
 if(num_found_poses_7 > 0):
     print(str(num_found_poses_7/num_tuples))
-    print("Old errors: "+str(num_found_poses_7/num_tuples)+" "+str(avg_succ_rep_err_7/num_found_poses_7)+" "+str(avg_succ_rot_err_7/num_found_poses_7)+" "+str(avg_succ_tran_err_7/num_found_poses_7))
+    #print("Old errors: "+str(num_found_poses_7/num_tuples)+" "+str(avg_succ_rep_err_7/num_found_poses_7)+" "+str(avg_succ_rot_err_7/num_found_poses_7)+" "+str(avg_succ_tran_err_7/num_found_poses_7))
     print("Cam error: "+str(avg_succ_cam_err_7/num_found_poses_7))
     print("Tran error: "+str(avg_succ_tran_err_7/num_found_poses_7))
     print("AUC: "+str(AUC5_7/num_tuples)+" "+str(AUC10_7/num_tuples)+" "+str(AUC20_7/num_tuples)+" | "+str(AUC_T1_7/num_tuples)+" "+str(AUC_T5_7/num_tuples)+" "+str(AUC_T10_7/num_tuples)+" ")
-    #print(str(num_found_poses_7/num_tuples)+" "+str(avg_succ_rep_err_7/num_found_poses_7)+" "+str(avg_succ_rot_err_7/num_found_poses_7)+" "+str(avg_succ_tran_err_7/num_found_poses_7)+" "+str(AUC5_7/num_tuples)+" "+str(AUC10_7/num_tuples)+" "+str(AUC20_7/num_tuples)+" "+str(AUC_T1_7/num_tuples)+" "+str(AUC_T5_7/num_tuples)+" "+str(AUC_T10_7/num_tuples))
 else:
     print(str(num_found_poses_7/num_tuples)+" "+str(50)+" "+str(180)+" "+str(100)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0))
 
-print("7 solver NANSON")
+print("7 solver upright implicit")
 if(num_found_poses_7N > 0):
     print(str(num_found_poses_7N/num_tuples))
-    print("Old errors: "+str(num_found_poses_7N/num_tuples)+" "+str(avg_succ_rep_err_7N/num_found_poses_7N)+" "+str(avg_succ_rot_err_7N/num_found_poses_7N)+" "+str(avg_succ_tran_err_7N/num_found_poses_7N))
+    #print("Old errors: "+str(num_found_poses_7N/num_tuples)+" "+str(avg_succ_rep_err_7N/num_found_poses_7N)+" "+str(avg_succ_rot_err_7N/num_found_poses_7N)+" "+str(avg_succ_tran_err_7N/num_found_poses_7N))
     print("Cam error: "+str(avg_succ_cam_err_7N/num_found_poses_7N))
     print("Tran error: "+str(avg_succ_tran_err_7N/num_found_poses_7N))
     print("AUC: "+str(AUC5_7N/num_tuples)+" "+str(AUC10_7N/num_tuples)+" "+str(AUC20_7N/num_tuples)+" | "+str(AUC_T1_7N/num_tuples)+" "+str(AUC_T5_7N/num_tuples)+" "+str(AUC_T10_7N/num_tuples)+" ")
-    #print(str(num_found_poses_7/num_tuples)+" "+str(avg_succ_rep_err_7/num_found_poses_7)+" "+str(avg_succ_rot_err_7/num_found_poses_7)+" "+str(avg_succ_tran_err_7/num_found_poses_7)+" "+str(AUC5_7/num_tuples)+" "+str(AUC10_7/num_tuples)+" "+str(AUC20_7/num_tuples)+" "+str(AUC_T1_7/num_tuples)+" "+str(AUC_T5_7/num_tuples)+" "+str(AUC_T10_7/num_tuples))
 else:
     print(str(num_found_poses_7N/num_tuples)+" "+str(50)+" "+str(180)+" "+str(100)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0)+" "+str(0))
+    

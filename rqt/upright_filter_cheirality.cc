@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #include "upright_filter_cheirality.h"
 
 namespace rqt {

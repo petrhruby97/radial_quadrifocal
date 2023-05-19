@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson
 #ifndef RQT_TYPES_H_
 #define RQT_TYPES_H_
 

@@ -1,3 +1,4 @@
+// \author Petr Hruby and Viktor Larsson based on original code by Ricardo Fabbri and Anton Leykin 
 #define EIGEN_USE_MKL_ALL
 #include "types.h"
 //#include "types.cc"
