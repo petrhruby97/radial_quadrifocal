@@ -136,7 +136,7 @@ In our code, we use efficient homotopy continuation implementation [MINUS](https
 ## RUNNING
 
 The tests are located in ./eval/ <br>
-They are run without arguments as python3 name_of_test.py
+They are run without arguments as python3 name_of_test.py <br>
 The list of the tests and their output is given above.
 
 
