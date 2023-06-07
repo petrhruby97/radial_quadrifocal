@@ -58,69 +58,69 @@ In our code, we use efficient homotopy continuation implementation [MINUS](https
 		HEADER: nanson2_radial_quadrifocal_solver.h
 		HC: nanson2_homotopy.h
 	15 Linear solver:
-		BODY: linear_radial_quadrifocal_solver.cc <br>
-		HEADER: linear_radial_quadrifocal_solver.h <br>
-	7 Upright Explicit solver: <br> <br>
-		BODY: upright_radial_quadrifocal_solver.cc <br>
-		HEADER: upright_radial_quadrifocal_solver.h <br>
-		HC: upright_homotopy.h <br> <br>
-	7 Upright Implicit solver: <br>
-		BODY: upright_nanson_radial_quadrifocal_solver.cc <br>
-		HEADER: upright_nanson_radial_quadrifocal_solver.cc <br>
-		HC: upright_nanson_homotopy.h <br> <br>
-	Others: <br>
-		INTERFACE FOR RANSAC: quadrifocal_estimator.cc, quadrifocal_estimator.h <br>
-		METRIC UPGRADE + CHEIRALITY FILTER: metric_upgrade.cc, metric_upgrade.h <br>
-		RANSAC: ransac_impl.h <br>
-		SOLVER FOR det(A + alpha*B) = 0 (used to construct the Radial Quadrifocal Tensor): solver_det4.cc, solver_det4.h <br>
-		SETTINGS AND STARTING SOLUTIONS FOR HC: types.cc, types.h <br>
-		CHEIRALITY FILTER FOR UPRIGHT SOLVERS: upright_filter_cheirality.cc, upright_filter_cheirality.h <br> <br>
+		BODY: linear_radial_quadrifocal_solver.cc
+		HEADER: linear_radial_quadrifocal_solver.h
+	7 Upright Explicit solver:
+		BODY: upright_radial_quadrifocal_solver.cc
+		HEADER: upright_radial_quadrifocal_solver.h
+		HC: upright_homotopy.h
+	7 Upright Implicit solver:
+		BODY: upright_nanson_radial_quadrifocal_solver.cc
+		HEADER: upright_nanson_radial_quadrifocal_solver.cc
+		HC: upright_nanson_homotopy.h
+	Others:
+		INTERFACE FOR RANSAC: quadrifocal_estimator.cc, quadrifocal_estimator.h
+		METRIC UPGRADE + CHEIRALITY FILTER: metric_upgrade.cc, metric_upgrade.h
+		RANSAC: ransac_impl.h
+		SOLVER FOR det(A + alpha*B) = 0 (used to construct the Radial Quadrifocal Tensor): solver_det4.cc, solver_det4.h
+		SETTINGS AND STARTING SOLUTIONS FOR HC: types.cc, types.h
+		CHEIRALITY FILTER FOR UPRIGHT SOLVERS: upright_filter_cheirality.cc, upright_filter_cheirality.h
 
 ### ./pybind/ PYTHON BINDINGS
 
-	pyrqt.cc: Contains python bindings for the functions defined in folder ./rqt/ <br> <br>
+	pyrqt.cc: Contains python bindings for the functions defined in folder ./rqt/
 
 
 ### ./eval/
-	Noiseless stability tests: <br>
-		stability_test_13explicit.py <br>
-		stability_test_13implicit.py <br>
-		stability_test_15linear.py <br>
-		stability_test_7explicit.py <br>
-		stability_test_7implicit.py <br>
-	These scripts are run without arguments, they print out camera, rotation, and translation error of 100000 randomly generated problems, each on a single line. <br> <br>
+	Noiseless stability tests:
+		stability_test_13explicit.py
+		stability_test_13implicit.py
+		stability_test_15linear.py
+		stability_test_7explicit.py
+		stability_test_7implicit.py
+	These scripts are run without arguments, they print out camera, rotation, and translation error of 100000 randomly generated problems, each on a single line.
 	
-	Robustness towards noise tests: <br>
-		noise_test_13explicit.py <br>
-		noise_test_13implicit.py <br>
-		noise_test_15linear.py <br>
-		noise_test_7explicit.py <br>
-		noise_test_7implicit.py <br>
-	These scripts are run without arguments, they iteratively increase the noise level from 0 to 10px, and for every noise level, they print the following values: <br>
-		noise in px <br>
-		percentage of problems, for which the solver returned a solution <br>
-		average camera error <br>
-		average rotation error (in degrees) <br>
-		average translation error (in world units) <br>
-		average camera error calculated over solutions, where the solver returned a solution <br>
-		average rotation error (in degrees) calculated over solutions, where the solver returned a solution <br>
-		average translation error (in world units) calculated over solutions, where the solver returned a solution <br>
-		percentage of problems with rotation error below 1 degree <br>
-		percentage of problems with rotation error below 5 degrees <br>
-		percentage of problems with rotation error below 10 degrees <br>
-		percentage of problems with translation error below 0.01 world units <br>
-		percentage of problems with translation error below 0.05 world units <br>
-		percentage of problems with translation error below 0.1 world units <br> <br>
+	Robustness towards noise tests:
+		noise_test_13explicit.py
+		noise_test_13implicit.py
+		noise_test_15linear.py
+		noise_test_7explicit.py
+		noise_test_7implicit.py
+	These scripts are run without arguments, they iteratively increase the noise level from 0 to 10px, and for every noise level, they print the following values:
+		noise in px
+		percentage of problems, for which the solver returned a solution
+		average camera error
+		average rotation error (in degrees)
+		average translation error (in world units)
+		average camera error calculated over solutions, where the solver returned a solution
+		average rotation error (in degrees) calculated over solutions, where the solver returned a solution
+		average translation error (in world units) calculated over solutions, where the solver returned a solution
+		percentage of problems with rotation error below 1 degree
+		percentage of problems with rotation error below 5 degrees
+		percentage of problems with rotation error below 10 degrees
+		percentage of problems with translation error below 0.01 world units
+		percentage of problems with translation error below 0.05 world units
+		percentage of problems with translation error below 0.1 world units
 	
-	Test with real data: <br>
-		test_ransac.py <br> <br>
-	This script runs without arguments. It extracts camera quadruplets from a COLMAP model, whose address has to be specified in the script. For every solver, it produces the following values: <br>
-		Name of the solver <br>
-		Percentage of quadruplets, for which the solver generated some pose <br>
-		Average camera error <br>
-		Average translation error <br>
-		Percentage of poses, whose rotation error is below 5, 10, 20 degrees <br>
-		Percentage of poses, whose translation error is below 0.5, 1, 5 meters <br>
+	Test with real data:
+		test_ransac.py
+	This script runs without arguments. It extracts camera quadruplets from a COLMAP model, whose address has to be specified in the script. For every solver, it produces the following values:
+		Name of the solver
+		Percentage of quadruplets, for which the solver generated some pose
+		Average camera error
+		Average translation error
+		Percentage of poses, whose rotation error is below 5, 10, 20 degrees
+		Percentage of poses, whose translation error is below 0.5, 1, 5 meters
 
 ## INSTALLATION
 
@@ -129,15 +129,15 @@ In our code, we use efficient homotopy continuation implementation [MINUS](https
 3. cd build
 4. cmake ..
 5. make
-6. wait until the compillation finishes There will be some warnings but [that's life](https://www.youtube.com/watch?v=TnlPtaPxXfc).
-7. there is a compiled python library "./build/pybind/pyrqt.cpython-38-x86_64-linux-gnu.so"
-8. If you want to run the scripts in ./eval/, copy the file "./build/pybind/pyrqt.cpython-38-x86_64-linux-gnu.so" to ./eval/
+6. there is a compiled python library "./build/pybind/pyrqt.cpython-38-x86_64-linux-gnu.so"
+7. If you want to run the scripts in ./eval/, copy the file "./build/pybind/pyrqt.cpython-38-x86_64-linux-gnu.so" to ./eval/
 
 
 ## RUNNING
 
-TODO WRITE DOWN THE LIST OF THE TESTS
-TODO WRITE DOWN THE INPUT AND OUTPUT FORMAT FOR EACH TEST
+The tests are located in ./eval/ <br>
+They are run without arguments as python3 name_of_test.py
+The list of the tests and their output is given above.
 
 
 
