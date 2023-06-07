@@ -1,6 +1,8 @@
 # Four-view geometry with unknown radial distortion
 
-This is the implementation of paper [Four-view geometry with unknown radial distortion](https://www.youtube.com/watch?v=TnlPtaPxXfc) (TODO ADD THE PROPER LINK). (TODO ADD SOME BRIEF DESCRIPTION OF THE PROJECT)
+This is the implementation of paper [Four-view geometry with unknown radial distortion](https://openaccess.thecvf.com/content/CVPR2023/papers/Hruby_Four-View_Geometry_With_Unknown_Radial_Distortion_CVPR_2023_paper.pdf)
+
+
 
 ## Bibtex
 If you use the code in your project, please cite:
@@ -45,79 +47,80 @@ In our code, we use efficient homotopy continuation implementation [MINUS](https
 
 ## THE REPOSITORY
 
-./rqt/	THE SOLVERS
-	TODO LIST
-	TODO READ THROUGH THE CODE AND DO SOME CLEANING
-	13 Explicit solver:
-		BODY: radial_quadrifocal_solver.cc
-		HEADER: radial_quadrifocal_solver.h
-		HC: homotopy.h
-	13 Implicit solver:
-		BODY: nanson2_radial_quadrifocal_solver.cc
-		HEADER: nanson2_radial_quadrifocal_solver.h
-		HC: nanson2_homotopy.h
+### ./rqt/	THE SOLVERS
+
+	13 Explicit solver: <br>
+		BODY: radial_quadrifocal_solver.cc <br>
+		HEADER: radial_quadrifocal_solver.h <br>
+		HC: homotopy.h <br>
+	13 Implicit solver: <br> <br>
+		BODY: nanson2_radial_quadrifocal_solver.cc <br>
+		HEADER: nanson2_radial_quadrifocal_solver.h <br>
+		HC: nanson2_homotopy.h <br> <br>
 	15 Linear solver:
-		BODY: linear_radial_quadrifocal_solver.cc
-		HEADER: linear_radial_quadrifocal_solver.h
-	7 Upright Explicit solver:
-		BODY: upright_radial_quadrifocal_solver.cc
-		HEADER: upright_radial_quadrifocal_solver.h
-		HC: upright_homotopy.h
-	7 Upright Implicit solver:
-		BODY: upright_nanson_radial_quadrifocal_solver.cc
-		HEADER: upright_nanson_radial_quadrifocal_solver.cc
-		HC: upright_nanson_homotopy.h
-	Others:
-		INTERFACE FOR RANSAC: quadrifocal_estimator.cc, quadrifocal_estimator.h
-		METRIC UPGRADE + CHEIRALITY FILTER: metric_upgrade.cc, metric_upgrade.h
-		RANSAC: ransac_impl.h
-		SOLVER FOR det(A + alpha*B) = 0 (used to construct the Radial Quadrifocal Tensor): solver_det4.cc, solver_det4.h
-		SETTINGS AND STARTING SOLUTIONS FOR HC: types.cc, types.h
-		CHEIRALITY FILTER FOR UPRIGHT SOLVERS: upright_filter_cheirality.cc, upright_filter_cheirality.h
+		BODY: linear_radial_quadrifocal_solver.cc <br>
+		HEADER: linear_radial_quadrifocal_solver.h <br>
+	7 Upright Explicit solver: <br> <br>
+		BODY: upright_radial_quadrifocal_solver.cc <br>
+		HEADER: upright_radial_quadrifocal_solver.h <br>
+		HC: upright_homotopy.h <br> <br>
+	7 Upright Implicit solver: <br>
+		BODY: upright_nanson_radial_quadrifocal_solver.cc <br>
+		HEADER: upright_nanson_radial_quadrifocal_solver.cc <br>
+		HC: upright_nanson_homotopy.h <br> <br>
+	Others: <br>
+		INTERFACE FOR RANSAC: quadrifocal_estimator.cc, quadrifocal_estimator.h <br>
+		METRIC UPGRADE + CHEIRALITY FILTER: metric_upgrade.cc, metric_upgrade.h <br>
+		RANSAC: ransac_impl.h <br>
+		SOLVER FOR det(A + alpha*B) = 0 (used to construct the Radial Quadrifocal Tensor): solver_det4.cc, solver_det4.h <br>
+		SETTINGS AND STARTING SOLUTIONS FOR HC: types.cc, types.h <br>
+		CHEIRALITY FILTER FOR UPRIGHT SOLVERS: upright_filter_cheirality.cc, upright_filter_cheirality.h <br> <br>
 
-./pybind/ PYTHON BINDINGS
-	pyrqt.cc: Contains python bindings for the functions defined in folder ./rqt/
+### ./pybind/ PYTHON BINDINGS
 
-./eval/
-	Noiseless stability tests:
-		stability_test_13explicit.py
-		stability_test_13implicit.py
-		stability_test_15linear.py
-		stability_test_7explicit.py
-		stability_test_7implicit.py
-	These scripts are run without arguments, they print out camera, rotation, and translation error of 100000 randomly generated problems, each on a single line.
+	pyrqt.cc: Contains python bindings for the functions defined in folder ./rqt/ <br> <br>
+
+
+### ./eval/
+	Noiseless stability tests: <br>
+		stability_test_13explicit.py <br>
+		stability_test_13implicit.py <br>
+		stability_test_15linear.py <br>
+		stability_test_7explicit.py <br>
+		stability_test_7implicit.py <br>
+	These scripts are run without arguments, they print out camera, rotation, and translation error of 100000 randomly generated problems, each on a single line. <br> <br>
 	
-	Robustness towards noise tests:
-		noise_test_13explicit.py
-		noise_test_13implicit.py
-		noise_test_15linear.py
-		noise_test_7explicit.py
-		noise_test_7implicit.py
-	These scripts are run without arguments, they iteratively increase the noise level from 0 to 10px, and for every noise level, they print the following values:
-		noise in px
-		percentage of problems, for which the solver returned a solution
-		average camera error
-		average rotation error (in degrees)
-		average translation error (in world units)
-		average camera error calculated over solutions, where the solver returned a solution
-		average rotation error (in degrees) calculated over solutions, where the solver returned a solution
-		average translation error (in world units) calculated over solutions, where the solver returned a solution
-		percentage of problems with rotation error below 1 degree
-		percentage of problems with rotation error below 5 degrees
-		percentage of problems with rotation error below 10 degrees
-		percentage of problems with translation error below 0.01 world units
-		percentage of problems with translation error below 0.05 world units
-		percentage of problems with translation error below 0.1 world units
+	Robustness towards noise tests: <br>
+		noise_test_13explicit.py <br>
+		noise_test_13implicit.py <br>
+		noise_test_15linear.py <br>
+		noise_test_7explicit.py <br>
+		noise_test_7implicit.py <br>
+	These scripts are run without arguments, they iteratively increase the noise level from 0 to 10px, and for every noise level, they print the following values: <br>
+		noise in px <br>
+		percentage of problems, for which the solver returned a solution <br>
+		average camera error <br>
+		average rotation error (in degrees) <br>
+		average translation error (in world units) <br>
+		average camera error calculated over solutions, where the solver returned a solution <br>
+		average rotation error (in degrees) calculated over solutions, where the solver returned a solution <br>
+		average translation error (in world units) calculated over solutions, where the solver returned a solution <br>
+		percentage of problems with rotation error below 1 degree <br>
+		percentage of problems with rotation error below 5 degrees <br>
+		percentage of problems with rotation error below 10 degrees <br>
+		percentage of problems with translation error below 0.01 world units <br>
+		percentage of problems with translation error below 0.05 world units <br>
+		percentage of problems with translation error below 0.1 world units <br> <br>
 	
-	Test with real data:
-		test_ransac.py
-	This script runs without arguments. It extracts camera quadruplets from a COLMAP model, whose address has to be specified in the script. For every solver, it produces the following values:
-		Name of the solver
-		Percentage of quadruplets, for which the solver generated some pose
-		Average camera error
-		Average translation error
-		Percentage of poses, whose rotation error is below 5, 10, 20 degrees
-		Percentage of poses, whose translation error is below 0.5, 1, 5 meters
+	Test with real data: <br>
+		test_ransac.py <br> <br>
+	This script runs without arguments. It extracts camera quadruplets from a COLMAP model, whose address has to be specified in the script. For every solver, it produces the following values: <br>
+		Name of the solver <br>
+		Percentage of quadruplets, for which the solver generated some pose <br>
+		Average camera error <br>
+		Average translation error <br>
+		Percentage of poses, whose rotation error is below 5, 10, 20 degrees <br>
+		Percentage of poses, whose translation error is below 0.5, 1, 5 meters <br>
 
 ## INSTALLATION
 
