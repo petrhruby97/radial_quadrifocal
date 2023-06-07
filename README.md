@@ -49,14 +49,14 @@ In our code, we use efficient homotopy continuation implementation [MINUS](https
 
 ### ./rqt/	THE SOLVERS
 
-	13 Explicit solver: <br>
-		BODY: radial_quadrifocal_solver.cc <br>
-		HEADER: radial_quadrifocal_solver.h <br>
-		HC: homotopy.h <br>
-	13 Implicit solver: <br> <br>
-		BODY: nanson2_radial_quadrifocal_solver.cc <br>
-		HEADER: nanson2_radial_quadrifocal_solver.h <br>
-		HC: nanson2_homotopy.h <br> <br>
+	13 Explicit solver:
+		BODY: radial_quadrifocal_solver.cc
+		HEADER: radial_quadrifocal_solver.h
+		HC: homotopy.h
+	13 Implicit solver:
+		BODY: nanson2_radial_quadrifocal_solver.cc
+		HEADER: nanson2_radial_quadrifocal_solver.h
+		HC: nanson2_homotopy.h
 	15 Linear solver:
 		BODY: linear_radial_quadrifocal_solver.cc <br>
 		HEADER: linear_radial_quadrifocal_solver.h <br>
